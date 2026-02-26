@@ -1,6 +1,6 @@
 # leonardo-cli
 
-`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  This first version implements two primary commands:
+`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.  This first version implements two primary commands:
 
 * `create` — Start a new text‑to‑image generation.  You can specify your prompt and optional parameters like model ID, image dimensions, number of images and more.
 * `status` — Check the progress of a previously started generation using its ID.  This command reports the status and prints any available image URLs once the job is complete.
@@ -66,6 +66,18 @@ Use the `status` command with the generation ID to check if your images are read
 The CLI will query `GET /api/rest/v1/generations/{id}`.  It attempts to extract the `status` and any image URLs from the response.  If the status is `PENDING`, no images will be returned.  According to Leonardo’s API FAQs, the `generated_images` array remains empty until the job is complete【271928005095238†L183-L201】.  Once the status is `COMPLETE`, the response contains URLs to the generated images.
 
 The full JSON response is printed for completeness.
+
+## Architecture overview
+
+The project is split into layers to make the code easier to extend and test:
+
+* **Domain (`internal/domain`)**: Contains simple structs representing requests and responses (`GenerationRequest`, `GenerationResponse` and `GenerationStatus`).  These types model the core concepts of the application without knowledge of external libraries.
+* **Ports (`internal/ports`)**: Defines the `LeonardoClient` interface that describes the operations needed to interact with the Leonardo service.  Any adapter (HTTP, mock, etc.) implementing this interface can be plugged into the service.
+* **Provider (`internal/provider`)**: Provides a concrete implementation of the `LeonardoClient` that talks to the Leonardo REST API over HTTP.  The `APIClient` in this layer builds requests, handles authentication and parses responses.
+* **Service (`internal/service`)**: Implements the application logic by depending on the `LeonardoClient` port.  The `GenerationService` exposes methods to create a generation and check its status.  Because it relies on an interface, the service can be tested with a mock client.
+* **CLI (`cmd/leonardo`)**: The entrypoint that parses command‑line flags and calls into the service layer.  It does not know about HTTP details; those are handled by the provider.
+
+This structure keeps the domain and business logic decoupled from I/O so that the tool can be adapted for other interfaces (for example, a GUI or web server) by providing alternative implementations of the `LeonardoClient` port.
 
 ## Notes
 

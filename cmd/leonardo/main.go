@@ -5,11 +5,12 @@ import (
     "encoding/json"
     "flag"
     "fmt"
-    "io/ioutil"
-    "net/http"
     "os"
     "strings"
-    "time"
+
+    "leonardo-cli/internal/domain"
+    "leonardo-cli/internal/provider"
+    "leonardo-cli/internal/service"
 )
 
 // printUsage prints the top level usage instructions.
@@ -22,12 +23,7 @@ func printUsage() {
     fmt.Fprintln(os.Stderr, "Use \"", program, " <command> -h\" for more information about a command.")
 }
 
-// makeHTTPClient returns a new HTTP client with reasonable defaults.
-func makeHTTPClient() *http.Client {
-    return &http.Client{Timeout: 60 * time.Second}
-}
-
-// ensureAPIKey retrieves the API key from environment and returns it.
+// ensureAPIKey retrieves the API key from the environment and returns it.
 func ensureAPIKey() (string, error) {
     key := os.Getenv("LEONARDO_API_KEY")
     if strings.TrimSpace(key) == "" {
@@ -36,103 +32,35 @@ func ensureAPIKey() (string, error) {
     return key, nil
 }
 
-// createGeneration sends a POST request to the Leonardo API to start an image generation.
-func createGeneration(params map[string]interface{}) error {
-    apiKey, err := ensureAPIKey()
+// createGeneration wraps the service call to create a generation and outputs
+// relevant information to the user.  It accepts a GenerationService and a
+// GenerationRequest built from CLI flags.
+func createGeneration(svc *service.GenerationService, req domain.GenerationRequest) error {
+    res, err := svc.Create(req)
     if err != nil {
         return err
     }
-    // Marshal the request body.
-    body, err := json.Marshal(params)
-    if err != nil {
-        return fmt.Errorf("failed to encode request body: %w", err)
+    if strings.TrimSpace(res.GenerationID) != "" {
+        fmt.Println("Generation ID:", res.GenerationID)
     }
-
-    req, err := http.NewRequest("POST", "https://cloud.leonardo.ai/api/rest/v1/generations", bytes.NewBuffer(body))
-    if err != nil {
-        return fmt.Errorf("failed to create request: %w", err)
-    }
-    req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Accept", "application/json")
-    req.Header.Set("Authorization", "Bearer "+apiKey)
-
-    client := makeHTTPClient()
-    resp, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("HTTP request failed: %w", err)
-    }
-    defer resp.Body.Close()
-
-    data, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        return fmt.Errorf("failed to read response: %w", err)
-    }
-    if resp.StatusCode >= 300 {
-        return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(data))
-    }
-    // Attempt to parse and display the generation ID if present.
-    var decoded map[string]interface{}
-    if err := json.Unmarshal(data, &decoded); err == nil {
-        // According to the API documentation, the generation ID is returned under sdGenerationJob.generationId.
-        if job, ok := decoded["sdGenerationJob"].(map[string]interface{}); ok {
-            if genID, ok := job["generationId"].(string); ok {
-                fmt.Println("Generation ID:", genID)
-            }
-        }
-    }
-    // Print full response as prettified JSON for transparency.
-    prettyPrintJSON(data)
+    prettyPrintJSON(res.Raw)
     return nil
 }
 
-// checkGenerationStatus retrieves the status of a generation by ID and prints it.
-func checkGenerationStatus(id string) error {
-    apiKey, err := ensureAPIKey()
+// checkGenerationStatus wraps the service call to obtain the status of a
+// generation and outputs relevant information to the user.
+func checkGenerationStatus(svc *service.GenerationService, id string) error {
+    status, err := svc.Status(id)
     if err != nil {
         return err
     }
-    url := fmt.Sprintf("https://cloud.leonardo.ai/api/rest/v1/generations/%s", id)
-    req, err := http.NewRequest("GET", url, nil)
-    if err != nil {
-        return fmt.Errorf("failed to create request: %w", err)
+    if strings.TrimSpace(status.Status) != "" {
+        fmt.Println("Status:", status.Status)
     }
-    req.Header.Set("Accept", "application/json")
-    req.Header.Set("Authorization", "Bearer "+apiKey)
-    client := makeHTTPClient()
-    resp, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("HTTP request failed: %w", err)
+    for i, url := range status.Images {
+        fmt.Printf("Image %d URL: %s\n", i+1, url)
     }
-    defer resp.Body.Close()
-    data, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        return fmt.Errorf("failed to read response: %w", err)
-    }
-    if resp.StatusCode >= 300 {
-        return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(data))
-    }
-    // Attempt to extract status from common fields.
-    var decoded map[string]interface{}
-    if err := json.Unmarshal(data, &decoded); err == nil {
-        // Newer API responses include generations_by_pk.status
-        if gen, ok := decoded["generations_by_pk"].(map[string]interface{}); ok {
-            if status, ok := gen["status"].(string); ok {
-                fmt.Println("Status:", status)
-            }
-            // Print image URLs if available
-            if images, ok := gen["generated_images"].([]interface{}); ok {
-                for i, img := range images {
-                    if imap, ok := img.(map[string]interface{}); ok {
-                        if url, ok := imap["url"].(string); ok {
-                            fmt.Printf("Image %d URL: %s\n", i+1, url)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // Print full response for debugging.
-    prettyPrintJSON(data)
+    prettyPrintJSON(status.Raw)
     return nil
 }
 
@@ -153,6 +81,14 @@ func main() {
         os.Exit(1)
     }
     cmd := os.Args[1]
+    apiKey, err := ensureAPIKey()
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        os.Exit(1)
+    }
+    // Construct the adapter and service once at program start.
+    client := provider.NewAPIClient(apiKey, nil)
+    svc := service.NewGenerationService(client)
     switch cmd {
     case "create":
         createCmd := flag.NewFlagSet("create", flag.ExitOnError)
@@ -173,35 +109,20 @@ func main() {
             createCmd.Usage()
             os.Exit(1)
         }
-        // Build request parameters. Only include fields with non-zero values.
-        body := make(map[string]interface{})
-        body["prompt"] = *prompt
-        body["num_images"] = *numImages
-        if *modelId != "" {
-            body["modelId"] = *modelId
+        // Build a domain request object.
+        req := domain.GenerationRequest{
+            Prompt:        *prompt,
+            ModelID:       *modelId,
+            Width:         *width,
+            Height:        *height,
+            NumImages:     *numImages,
+            Alchemy:       *alchemy,
+            Ultra:         *ultra,
+            StyleUUID:     *styleUUID,
+            Contrast:      *contrast,
+            GuidanceScale: *guidanceScale,
         }
-        if *width > 0 {
-            body["width"] = *width
-        }
-        if *height > 0 {
-            body["height"] = *height
-        }
-        if *alchemy {
-            body["alchemy"] = true
-        }
-        if *ultra {
-            body["ultra"] = true
-        }
-        if *styleUUID != "" {
-            body["styleUUID"] = *styleUUID
-        }
-        if *contrast > 0 {
-            body["contrast"] = *contrast
-        }
-        if *guidanceScale > 0 {
-            body["guidance_scale"] = *guidanceScale
-        }
-        if err := createGeneration(body); err != nil {
+        if err := createGeneration(svc, req); err != nil {
             fmt.Fprintln(os.Stderr, "Error creating generation:", err)
             os.Exit(1)
         }
@@ -214,7 +135,7 @@ func main() {
             statusCmd.Usage()
             os.Exit(1)
         }
-        if err := checkGenerationStatus(*id); err != nil {
+        if err := checkGenerationStatus(svc, *id); err != nil {
             fmt.Fprintln(os.Stderr, "Error checking status:", err)
             os.Exit(1)
         }
