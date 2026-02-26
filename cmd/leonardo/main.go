@@ -23,6 +23,7 @@ func printUsage() {
     fmt.Fprintln(os.Stderr, "  delete   Delete an existing generation")
     fmt.Fprintln(os.Stderr, "  me       Show account info and token balances")
     fmt.Fprintln(os.Stderr, "  list     List recent generations")
+    fmt.Fprintln(os.Stderr, "  download Download images for a completed generation")
     fmt.Fprintln(os.Stderr, "Use \"", program, " <command> -h\" for more information about a command.")
 }
 
@@ -118,6 +119,19 @@ func listGenerations(svc *service.GenerationService, userID string, offset, limi
         fmt.Println()
     }
     prettyPrintJSON(resp.Raw)
+    return nil
+}
+
+// downloadImages wraps the service call to download all generated images for a
+// generation and outputs the saved file paths to the user.
+func downloadImages(svc *service.GenerationService, id, outputDir string) error {
+    result, err := svc.Download(id, outputDir)
+    if err != nil {
+        return err
+    }
+    for i, fp := range result.FilePaths {
+        fmt.Printf("Image %d saved: %s\n", i+1, fp)
+    }
     return nil
 }
 
@@ -227,6 +241,20 @@ func main() {
         }
         if err := listGenerations(svc, *userID, *offset, *limit); err != nil {
             fmt.Fprintln(os.Stderr, "Error listing generations:", err)
+            os.Exit(1)
+        }
+    case "download":
+        downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
+        id := downloadCmd.String("id", "", "Generation ID to download images for (required)")
+        outputDir := downloadCmd.String("output-dir", ".", "Directory to save downloaded images")
+        downloadCmd.Parse(os.Args[2:])
+        if strings.TrimSpace(*id) == "" {
+            fmt.Fprintln(os.Stderr, "Error: --id is required")
+            downloadCmd.Usage()
+            os.Exit(1)
+        }
+        if err := downloadImages(svc, *id, *outputDir); err != nil {
+            fmt.Fprintln(os.Stderr, "Error downloading images:", err)
             os.Exit(1)
         }
     case "help", "--help", "-h":

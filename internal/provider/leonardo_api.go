@@ -6,6 +6,7 @@ import (
     "fmt"
     "io/ioutil"
     "net/http"
+    "os"
     "time"
 
     "leonardo-cli/internal/domain"
@@ -287,6 +288,33 @@ func (c *APIClient) ListGenerations(userID string, offset, limit int) (domain.Ge
         }
     }
     return result, nil
+}
+
+// DownloadImage implements the LeonardoClient interface.  It issues a plain
+// GET request to the given URL (typically a CDN image URL) and writes the
+// response body to destPath.  No Authorization header is sent because the
+// URL is a public CDN link, not a Leonardo API endpoint.
+func (c *APIClient) DownloadImage(url, destPath string) error {
+    httpReq, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return fmt.Errorf("creating request: %w", err)
+    }
+    resp, err := c.httpClient.Do(httpReq)
+    if err != nil {
+        return fmt.Errorf("executing request: %w", err)
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode >= 300 {
+        return fmt.Errorf("download returned status %d", resp.StatusCode)
+    }
+    bodyBytes, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("reading response: %w", err)
+    }
+    if err := os.WriteFile(destPath, bodyBytes, 0644); err != nil {
+        return fmt.Errorf("writing file: %w", err)
+    }
+    return nil
 }
 
 // Ensure APIClient satisfies the LeonardoClient interface at compile time.

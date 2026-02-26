@@ -65,3 +65,10 @@ type GenerationListResponse struct {
     Generations []GenerationListItem
     Raw         []byte
 }
+
+// DownloadResult represents the outcome of downloading generated images
+// for a single generation.  It contains the list of file paths where images
+// were saved.
+type DownloadResult struct {
+    FilePaths []string
+}

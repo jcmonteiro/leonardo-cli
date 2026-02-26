@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -605,6 +607,112 @@ func TestAPIClient_ListGenerations_ReturnsRawResponseAlways(t *testing.T) {
 	}
 	if string(resp.Raw) != expectedJSON {
 		t.Errorf("expected raw response %q, got %q", expectedJSON, string(resp.Raw))
+	}
+}
+
+// --- Behavior: Downloading an image via HTTP ---
+
+func TestAPIClient_DownloadImage_SavesFileToDestPath(t *testing.T) {
+	expectedContent := []byte("fake-png-image-data")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(expectedContent)
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	destDir := t.TempDir()
+	destPath := filepath.Join(destDir, "image.png")
+
+	err := client.DownloadImage(server.URL+"/some/image.png", destPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the file was created with correct content
+	data, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("failed to read downloaded file: %v", err)
+	}
+	if string(data) != string(expectedContent) {
+		t.Errorf("expected file content %q, got %q", string(expectedContent), string(data))
+	}
+}
+
+func TestAPIClient_DownloadImage_ReturnsErrorOnNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	destDir := t.TempDir()
+	destPath := filepath.Join(destDir, "should-not-exist.png")
+
+	err := client.DownloadImage(server.URL+"/missing.png", destPath)
+	if err == nil {
+		t.Fatal("expected error for 404 status, got nil")
+	}
+	if !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected error to mention status 404, got %q", err.Error())
+	}
+
+	// Verify no file was created
+	if _, statErr := os.Stat(destPath); !os.IsNotExist(statErr) {
+		t.Error("expected file to not exist after failed download")
+	}
+}
+
+func TestAPIClient_DownloadImage_DoesNotSendAuthHeader(t *testing.T) {
+	var receivedHeaders http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("image-bytes"))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("secret-api-key", server.URL)
+
+	destDir := t.TempDir()
+	destPath := filepath.Join(destDir, "img.png")
+
+	err := client.DownloadImage(server.URL+"/img.png", destPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// DownloadImage fetches from a CDN — it should NOT send the API Authorization header
+	if auth := receivedHeaders.Get("Authorization"); auth != "" {
+		t.Errorf("expected no Authorization header for image download, got %q", auth)
+	}
+}
+
+func TestAPIClient_DownloadImage_UsesGETMethod(t *testing.T) {
+	var receivedMethod string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("image-bytes"))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	destDir := t.TempDir()
+	destPath := filepath.Join(destDir, "img.png")
+
+	err := client.DownloadImage(server.URL+"/img.png", destPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedMethod != "GET" {
+		t.Errorf("expected GET, got %s", receivedMethod)
 	}
 }
 

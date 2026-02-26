@@ -190,3 +190,62 @@ func TestIntegration_DeleteGeneration(t *testing.T) {
 		t.Logf("Status after deletion: %q (may be cached)", status.Status)
 	}
 }
+
+func TestIntegration_DownloadImage(t *testing.T) {
+	apiKey := requireAPIKey(t)
+
+	client := provider.NewAPIClient(apiKey, nil)
+
+	// Create a generation and wait for it to complete
+	req := domain.GenerationRequest{
+		Prompt:    "A small blue square on a white background",
+		NumImages: 1,
+	}
+	createResp, err := client.CreateGeneration(req)
+	if err != nil {
+		t.Fatalf("CreateGeneration failed: %v", err)
+	}
+	if createResp.GenerationID == "" {
+		t.Fatal("expected a non-empty generation ID")
+	}
+	t.Logf("Created generation: %s", createResp.GenerationID)
+
+	// Poll for completion
+	deadline := time.Now().Add(2 * time.Minute)
+	var status domain.GenerationStatus
+	for time.Now().Before(deadline) {
+		status, err = client.GetGenerationStatus(createResp.GenerationID)
+		if err != nil {
+			t.Fatalf("GetGenerationStatus failed: %v", err)
+		}
+		t.Logf("Status: %s (images: %d)", status.Status, len(status.Images))
+		if status.Status == "COMPLETE" {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+	if status.Status != "COMPLETE" {
+		t.Fatalf("generation did not complete within timeout, last status: %s", status.Status)
+	}
+	if len(status.Images) == 0 {
+		t.Fatal("expected at least one image URL after completion")
+	}
+
+	// Download the first image
+	destDir := t.TempDir()
+	destPath := destDir + "/test_download.png"
+	err = client.DownloadImage(status.Images[0], destPath)
+	if err != nil {
+		t.Fatalf("DownloadImage failed: %v", err)
+	}
+
+	// Verify the file exists and has non-zero size
+	info, err := os.Stat(destPath)
+	if err != nil {
+		t.Fatalf("failed to stat downloaded file: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Error("expected downloaded file to have non-zero size")
+	}
+	t.Logf("Downloaded image: %s (%d bytes)", destPath, info.Size())
+}

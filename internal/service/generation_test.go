@@ -2,6 +2,9 @@ package service_test
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"leonardo-cli/internal/domain"
@@ -12,11 +15,12 @@ import (
 // layer at the port boundary. We stub only the port — never internal
 // collaborators — following Cooper's guidance on hexagonal testing.
 type fakeLeonardoClient struct {
-	createFn func(req domain.GenerationRequest) (domain.GenerationResponse, error)
-	statusFn func(id string) (domain.GenerationStatus, error)
-	deleteFn func(id string) (domain.DeleteResponse, error)
-	userFn   func() (domain.UserInfo, error)
-	listFn   func(userID string, offset, limit int) (domain.GenerationListResponse, error)
+	createFn   func(req domain.GenerationRequest) (domain.GenerationResponse, error)
+	statusFn   func(id string) (domain.GenerationStatus, error)
+	deleteFn   func(id string) (domain.DeleteResponse, error)
+	userFn     func() (domain.UserInfo, error)
+	listFn     func(userID string, offset, limit int) (domain.GenerationListResponse, error)
+	downloadFn func(url, destPath string) error
 }
 
 func (f *fakeLeonardoClient) CreateGeneration(req domain.GenerationRequest) (domain.GenerationResponse, error) {
@@ -37,6 +41,10 @@ func (f *fakeLeonardoClient) GetUserInfo() (domain.UserInfo, error) {
 
 func (f *fakeLeonardoClient) ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error) {
 	return f.listFn(userID, offset, limit)
+}
+
+func (f *fakeLeonardoClient) DownloadImage(url, destPath string) error {
+	return f.downloadFn(url, destPath)
 }
 
 // --- Behavior: Creating a generation ---
@@ -426,5 +434,195 @@ func TestListGenerations_PropagatesClientError(t *testing.T) {
 	}
 	if err.Error() != "API returned status 403" {
 		t.Errorf("expected error message %q, got %q", "API returned status 403", err.Error())
+	}
+}
+
+// --- Behavior: Downloading images for a generation ---
+
+func TestDownload_DownloadsAllImagesAndReturnsFilePaths(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{
+					"https://cdn.leonardo.ai/img1.png",
+					"https://cdn.leonardo.ai/img2.png",
+				},
+				Raw: []byte(`{}`),
+			}, nil
+		},
+		downloadFn: func(url, destPath string) error {
+			// Simulate successful download by creating the file
+			return os.WriteFile(destPath, []byte("fake-image"), 0644)
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	outputDir := t.TempDir()
+	result, err := svc.Download("gen-abc-123", outputDir)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(result.FilePaths) != 2 {
+		t.Fatalf("expected 2 file paths, got %d", len(result.FilePaths))
+	}
+	for _, fp := range result.FilePaths {
+		if _, statErr := os.Stat(fp); os.IsNotExist(statErr) {
+			t.Errorf("expected file %q to exist", fp)
+		}
+	}
+}
+
+func TestDownload_UsesGenerationIDAndIndexInFilenames(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{"https://cdn.leonardo.ai/img1.png"},
+				Raw:    []byte(`{}`),
+			}, nil
+		},
+		downloadFn: func(url, destPath string) error {
+			return os.WriteFile(destPath, []byte("data"), 0644)
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	outputDir := t.TempDir()
+	result, err := svc.Download("gen-xyz", outputDir)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(result.FilePaths) != 1 {
+		t.Fatalf("expected 1 file path, got %d", len(result.FilePaths))
+	}
+	expected := filepath.Join(outputDir, "gen-xyz_1.png")
+	if result.FilePaths[0] != expected {
+		t.Errorf("expected file path %q, got %q", expected, result.FilePaths[0])
+	}
+}
+
+func TestDownload_ReturnsErrorWhenGenerationNotComplete(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "PENDING",
+				Images: nil,
+				Raw:    []byte(`{}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Download("gen-pending", t.TempDir())
+
+	if err == nil {
+		t.Fatal("expected error for non-complete generation, got nil")
+	}
+	if !strings.Contains(err.Error(), "PENDING") {
+		t.Errorf("expected error to mention status PENDING, got %q", err.Error())
+	}
+}
+
+func TestDownload_ReturnsErrorWhenNoImages(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{},
+				Raw:    []byte(`{}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Download("gen-no-images", t.TempDir())
+
+	if err == nil {
+		t.Fatal("expected error when no images available, got nil")
+	}
+	if !strings.Contains(err.Error(), "no images") {
+		t.Errorf("expected error to mention 'no images', got %q", err.Error())
+	}
+}
+
+func TestDownload_PropagatesStatusError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{}, errors.New("API returned status 404")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Download("nonexistent", t.TempDir())
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "API returned status 404" {
+		t.Errorf("expected error message %q, got %q", "API returned status 404", err.Error())
+	}
+}
+
+func TestDownload_PropagatesDownloadError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{"https://cdn.leonardo.ai/img1.png"},
+				Raw:    []byte(`{}`),
+			}, nil
+		},
+		downloadFn: func(url, destPath string) error {
+			return errors.New("download failed: connection refused")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Download("gen-fail", t.TempDir())
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "download failed") {
+		t.Errorf("expected error to mention 'download failed', got %q", err.Error())
+	}
+}
+
+func TestDownload_PassesCorrectURLsToClient(t *testing.T) {
+	var capturedURLs []string
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{
+					"https://cdn.leonardo.ai/first.png",
+					"https://cdn.leonardo.ai/second.png",
+				},
+				Raw: []byte(`{}`),
+			}, nil
+		},
+		downloadFn: func(url, destPath string) error {
+			capturedURLs = append(capturedURLs, url)
+			return os.WriteFile(destPath, []byte("data"), 0644)
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Download("gen-urls", t.TempDir())
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(capturedURLs) != 2 {
+		t.Fatalf("expected 2 download calls, got %d", len(capturedURLs))
+	}
+	if capturedURLs[0] != "https://cdn.leonardo.ai/first.png" {
+		t.Errorf("expected first URL %q, got %q", "https://cdn.leonardo.ai/first.png", capturedURLs[0])
+	}
+	if capturedURLs[1] != "https://cdn.leonardo.ai/second.png" {
+		t.Errorf("expected second URL %q, got %q", "https://cdn.leonardo.ai/second.png", capturedURLs[1])
 	}
 }

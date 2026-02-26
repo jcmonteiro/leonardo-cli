@@ -16,6 +16,8 @@ type LeonardoClient interface {
     DeleteGeneration(id string) (domain.DeleteResponse, error)
     // GetUserInfo retrieves the authenticated user's account information.
     GetUserInfo() (domain.UserInfo, error)
-    // ListGenerations returns a paginated list of generations for a given user.
-    ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error)
+	// ListGenerations returns a paginated list of generations for a given user.
+	ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error)
+	// DownloadImage downloads an image from the given URL and saves it to destPath.
+	DownloadImage(url, destPath string) error
 }
