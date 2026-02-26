@@ -26,9 +26,9 @@ func requireAPIKey(t *testing.T) string {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
-	key := os.Getenv("LEONARDO_API_KEY")
+	key := os.Getenv("LEONARDO_API_TOKEN")
 	if strings.TrimSpace(key) == "" {
-		t.Skip("skipping integration test: LEONARDO_API_KEY not set")
+		t.Skip("skipping integration test: LEONARDO_API_TOKEN not set")
 	}
 	return key
 }

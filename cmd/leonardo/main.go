@@ -25,10 +25,10 @@ func printUsage() {
 
 // ensureAPIKey retrieves the API key from the environment and returns it.
 func ensureAPIKey() (string, error) {
-    key := os.Getenv("LEONARDO_API_KEY")
-    if strings.TrimSpace(key) == "" {
-        return "", fmt.Errorf("environment variable LEONARDO_API_KEY is not set")
-    }
+	key := os.Getenv("LEONARDO_API_TOKEN")
+	if strings.TrimSpace(key) == "" {
+		return "", fmt.Errorf("environment variable LEONARDO_API_TOKEN is not set")
+	}
     return key, nil
 }
 
