@@ -14,6 +14,9 @@ import (
 type fakeLeonardoClient struct {
 	createFn func(req domain.GenerationRequest) (domain.GenerationResponse, error)
 	statusFn func(id string) (domain.GenerationStatus, error)
+	deleteFn func(id string) (domain.DeleteResponse, error)
+	userFn   func() (domain.UserInfo, error)
+	listFn   func(userID string, offset, limit int) (domain.GenerationListResponse, error)
 }
 
 func (f *fakeLeonardoClient) CreateGeneration(req domain.GenerationRequest) (domain.GenerationResponse, error) {
@@ -22,6 +25,18 @@ func (f *fakeLeonardoClient) CreateGeneration(req domain.GenerationRequest) (dom
 
 func (f *fakeLeonardoClient) GetGenerationStatus(id string) (domain.GenerationStatus, error) {
 	return f.statusFn(id)
+}
+
+func (f *fakeLeonardoClient) DeleteGeneration(id string) (domain.DeleteResponse, error) {
+	return f.deleteFn(id)
+}
+
+func (f *fakeLeonardoClient) GetUserInfo() (domain.UserInfo, error) {
+	return f.userFn()
+}
+
+func (f *fakeLeonardoClient) ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error) {
+	return f.listFn(userID, offset, limit)
 }
 
 // --- Behavior: Creating a generation ---
@@ -217,5 +232,199 @@ func TestStatus_PropagatesClientError(t *testing.T) {
 	}
 	if err.Error() != "API returned status 404" {
 		t.Errorf("expected error message %q, got %q", "API returned status 404", err.Error())
+	}
+}
+
+// --- Behavior: Deleting a generation ---
+
+func TestDelete_ReturnsDeletedIDAndRawResponse(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		deleteFn: func(id string) (domain.DeleteResponse, error) {
+			return domain.DeleteResponse{
+				ID:  "gen-del-456",
+				Raw: []byte(`{"delete_generations_by_pk":{"id":"gen-del-456"}}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	resp, err := svc.Delete("gen-del-456")
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resp.ID != "gen-del-456" {
+		t.Errorf("expected deleted ID %q, got %q", "gen-del-456", resp.ID)
+	}
+	if len(resp.Raw) == 0 {
+		t.Error("expected non-empty raw response")
+	}
+}
+
+func TestDelete_PassesGenerationIDToClient(t *testing.T) {
+	var capturedID string
+	fake := &fakeLeonardoClient{
+		deleteFn: func(id string) (domain.DeleteResponse, error) {
+			capturedID = id
+			return domain.DeleteResponse{ID: id}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, _ = svc.Delete("my-gen-to-delete")
+
+	if capturedID != "my-gen-to-delete" {
+		t.Errorf("expected ID %q passed to client, got %q", "my-gen-to-delete", capturedID)
+	}
+}
+
+func TestDelete_PropagatesClientError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		deleteFn: func(id string) (domain.DeleteResponse, error) {
+			return domain.DeleteResponse{}, errors.New("API returned status 404")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.Delete("nonexistent-id")
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "API returned status 404" {
+		t.Errorf("expected error message %q, got %q", "API returned status 404", err.Error())
+	}
+}
+
+// --- Behavior: Getting user info ---
+
+func TestUserInfo_ReturnsUserDetailsAndTokenBalances(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		userFn: func() (domain.UserInfo, error) {
+			return domain.UserInfo{
+				UserID:                "user-uuid-1",
+				Username:              "testuser",
+				APISubscriptionTokens: 10000,
+				APIPaidTokens:         5000,
+				TokenRenewalDate:      "2026-03-01T00:00:00.000Z",
+				Raw:                   []byte(`{"user_details":[{}]}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	info, err := svc.UserInfo()
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if info.UserID != "user-uuid-1" {
+		t.Errorf("expected user ID %q, got %q", "user-uuid-1", info.UserID)
+	}
+	if info.Username != "testuser" {
+		t.Errorf("expected username %q, got %q", "testuser", info.Username)
+	}
+	if info.APISubscriptionTokens != 10000 {
+		t.Errorf("expected apiSubscriptionTokens 10000, got %d", info.APISubscriptionTokens)
+	}
+	if info.APIPaidTokens != 5000 {
+		t.Errorf("expected apiPaidTokens 5000, got %d", info.APIPaidTokens)
+	}
+	if len(info.Raw) == 0 {
+		t.Error("expected non-empty raw response")
+	}
+}
+
+func TestUserInfo_PropagatesClientError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		userFn: func() (domain.UserInfo, error) {
+			return domain.UserInfo{}, errors.New("API returned status 401")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.UserInfo()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "API returned status 401" {
+		t.Errorf("expected error message %q, got %q", "API returned status 401", err.Error())
+	}
+}
+
+// --- Behavior: Listing generations ---
+
+func TestListGenerations_ReturnsGenerationsFromClient(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		listFn: func(userID string, offset, limit int) (domain.GenerationListResponse, error) {
+			return domain.GenerationListResponse{
+				Generations: []domain.GenerationListItem{
+					{ID: "gen-1", Status: "COMPLETE", Prompt: "sunset"},
+					{ID: "gen-2", Status: "PENDING", Prompt: "mountain"},
+				},
+				Raw: []byte(`{"generations":[{},{}]}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	resp, err := svc.ListGenerations("user-1", 0, 10)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(resp.Generations) != 2 {
+		t.Fatalf("expected 2 generations, got %d", len(resp.Generations))
+	}
+	if resp.Generations[0].ID != "gen-1" {
+		t.Errorf("expected first generation ID %q, got %q", "gen-1", resp.Generations[0].ID)
+	}
+	if resp.Generations[1].Status != "PENDING" {
+		t.Errorf("expected second generation status %q, got %q", "PENDING", resp.Generations[1].Status)
+	}
+}
+
+func TestListGenerations_PassesParametersToClient(t *testing.T) {
+	var capturedUserID string
+	var capturedOffset, capturedLimit int
+	fake := &fakeLeonardoClient{
+		listFn: func(userID string, offset, limit int) (domain.GenerationListResponse, error) {
+			capturedUserID = userID
+			capturedOffset = offset
+			capturedLimit = limit
+			return domain.GenerationListResponse{}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, _ = svc.ListGenerations("user-xyz", 5, 25)
+
+	if capturedUserID != "user-xyz" {
+		t.Errorf("expected userID %q, got %q", "user-xyz", capturedUserID)
+	}
+	if capturedOffset != 5 {
+		t.Errorf("expected offset 5, got %d", capturedOffset)
+	}
+	if capturedLimit != 25 {
+		t.Errorf("expected limit 25, got %d", capturedLimit)
+	}
+}
+
+func TestListGenerations_PropagatesClientError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		listFn: func(userID string, offset, limit int) (domain.GenerationListResponse, error) {
+			return domain.GenerationListResponse{}, errors.New("API returned status 403")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.ListGenerations("user-1", 0, 10)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "API returned status 403" {
+		t.Errorf("expected error message %q, got %q", "API returned status 403", err.Error())
 	}
 }

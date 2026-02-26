@@ -325,6 +325,289 @@ func TestAPIClient_GetGenerationStatus_ReturnsRawResponseAlways(t *testing.T) {
 	}
 }
 
+// --- Behavior: Deleting a generation via HTTP ---
+
+func TestAPIClient_DeleteGeneration_SendsCorrectHTTPRequest(t *testing.T) {
+	var receivedMethod, receivedPath string
+	var receivedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		receivedPath = r.URL.Path
+		receivedHeaders = r.Header
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"delete_generations_by_pk":{"id":"gen-del-123"}}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("my-api-key", server.URL)
+
+	resp, err := client.DeleteGeneration("gen-del-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedMethod != "DELETE" {
+		t.Errorf("expected DELETE, got %s", receivedMethod)
+	}
+	if receivedPath != "/api/rest/v1/generations/gen-del-123" {
+		t.Errorf("expected path /api/rest/v1/generations/gen-del-123, got %s", receivedPath)
+	}
+	if receivedHeaders.Get("Authorization") != "Bearer my-api-key" {
+		t.Errorf("expected Authorization header %q, got %q", "Bearer my-api-key", receivedHeaders.Get("Authorization"))
+	}
+	if resp.ID != "gen-del-123" {
+		t.Errorf("expected deleted ID %q, got %q", "gen-del-123", resp.ID)
+	}
+}
+
+func TestAPIClient_DeleteGeneration_ReturnsErrorOnNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"generation not found"}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	_, err := client.DeleteGeneration("nonexistent-id")
+	if err == nil {
+		t.Fatal("expected error for 404 status, got nil")
+	}
+	if !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected error to mention status 404, got %q", err.Error())
+	}
+}
+
+func TestAPIClient_DeleteGeneration_ReturnsRawResponseAlways(t *testing.T) {
+	expectedJSON := `{"delete_generations_by_pk":{"id":"gen-raw-del"}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(expectedJSON))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	resp, err := client.DeleteGeneration("gen-raw-del")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp.Raw) != expectedJSON {
+		t.Errorf("expected raw response %q, got %q", expectedJSON, string(resp.Raw))
+	}
+}
+
+// --- Behavior: Getting user info via HTTP ---
+
+func TestAPIClient_GetUserInfo_SendsCorrectHTTPRequest(t *testing.T) {
+	var receivedMethod, receivedPath string
+	var receivedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		receivedPath = r.URL.Path
+		receivedHeaders = r.Header
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"user_details":[{"user":{"id":"user-uuid-1","username":"testuser"},"apiSubscriptionTokens":10000,"apiPaidTokens":5000,"apiPlanTokenRenewalDate":"2026-03-01T00:00:00.000Z"}]}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("my-api-key", server.URL)
+
+	info, err := client.GetUserInfo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedMethod != "GET" {
+		t.Errorf("expected GET, got %s", receivedMethod)
+	}
+	if receivedPath != "/api/rest/v1/me" {
+		t.Errorf("expected path /api/rest/v1/me, got %s", receivedPath)
+	}
+	if receivedHeaders.Get("Authorization") != "Bearer my-api-key" {
+		t.Errorf("expected Authorization header %q, got %q", "Bearer my-api-key", receivedHeaders.Get("Authorization"))
+	}
+	if info.UserID != "user-uuid-1" {
+		t.Errorf("expected user ID %q, got %q", "user-uuid-1", info.UserID)
+	}
+	if info.Username != "testuser" {
+		t.Errorf("expected username %q, got %q", "testuser", info.Username)
+	}
+	if info.APISubscriptionTokens != 10000 {
+		t.Errorf("expected apiSubscriptionTokens 10000, got %d", info.APISubscriptionTokens)
+	}
+	if info.APIPaidTokens != 5000 {
+		t.Errorf("expected apiPaidTokens 5000, got %d", info.APIPaidTokens)
+	}
+	if info.TokenRenewalDate != "2026-03-01T00:00:00.000Z" {
+		t.Errorf("expected tokenRenewalDate %q, got %q", "2026-03-01T00:00:00.000Z", info.TokenRenewalDate)
+	}
+}
+
+func TestAPIClient_GetUserInfo_ReturnsErrorOnNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("bad-key", server.URL)
+
+	_, err := client.GetUserInfo()
+	if err == nil {
+		t.Fatal("expected error for 401 status, got nil")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected error to mention status 401, got %q", err.Error())
+	}
+}
+
+func TestAPIClient_GetUserInfo_ReturnsRawResponseAlways(t *testing.T) {
+	expectedJSON := `{"user_details":[{"user":{"id":"u1","username":"u"},"apiSubscriptionTokens":0,"apiPaidTokens":0}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(expectedJSON))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	info, err := client.GetUserInfo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(info.Raw) != expectedJSON {
+		t.Errorf("expected raw response %q, got %q", expectedJSON, string(info.Raw))
+	}
+}
+
+// --- Behavior: Listing user generations via HTTP ---
+
+func TestAPIClient_ListGenerations_SendsCorrectHTTPRequest(t *testing.T) {
+	var receivedMethod, receivedPath, receivedQuery string
+	var receivedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		receivedPath = r.URL.Path
+		receivedQuery = r.URL.RawQuery
+		receivedHeaders = r.Header
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"generations":[{"id":"gen-1","status":"COMPLETE","createdAt":"2026-02-26T10:00:00.000Z","prompt":"test prompt","generated_images":[{"url":"https://cdn.leonardo.ai/img1.png"}]}]}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("my-api-key", server.URL)
+
+	resp, err := client.ListGenerations("user-uuid-1", 0, 10)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedMethod != "GET" {
+		t.Errorf("expected GET, got %s", receivedMethod)
+	}
+	if receivedPath != "/api/rest/v1/generations/user/user-uuid-1" {
+		t.Errorf("expected path /api/rest/v1/generations/user/user-uuid-1, got %s", receivedPath)
+	}
+	if !strings.Contains(receivedQuery, "offset=0") {
+		t.Errorf("expected query to contain offset=0, got %q", receivedQuery)
+	}
+	if !strings.Contains(receivedQuery, "limit=10") {
+		t.Errorf("expected query to contain limit=10, got %q", receivedQuery)
+	}
+	if receivedHeaders.Get("Authorization") != "Bearer my-api-key" {
+		t.Errorf("expected Authorization header %q, got %q", "Bearer my-api-key", receivedHeaders.Get("Authorization"))
+	}
+	if len(resp.Generations) != 1 {
+		t.Fatalf("expected 1 generation, got %d", len(resp.Generations))
+	}
+	gen := resp.Generations[0]
+	if gen.ID != "gen-1" {
+		t.Errorf("expected generation ID %q, got %q", "gen-1", gen.ID)
+	}
+	if gen.Status != "COMPLETE" {
+		t.Errorf("expected status %q, got %q", "COMPLETE", gen.Status)
+	}
+	if gen.Prompt != "test prompt" {
+		t.Errorf("expected prompt %q, got %q", "test prompt", gen.Prompt)
+	}
+	if len(gen.Images) != 1 {
+		t.Fatalf("expected 1 image, got %d", len(gen.Images))
+	}
+	if gen.Images[0] != "https://cdn.leonardo.ai/img1.png" {
+		t.Errorf("expected image URL %q, got %q", "https://cdn.leonardo.ai/img1.png", gen.Images[0])
+	}
+}
+
+func TestAPIClient_ListGenerations_ParsesMultipleGenerations(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"generations":[
+				{"id":"gen-1","status":"COMPLETE","createdAt":"2026-02-26T10:00:00.000Z","prompt":"first","generated_images":[]},
+				{"id":"gen-2","status":"PENDING","createdAt":"2026-02-26T11:00:00.000Z","prompt":"second","generated_images":[]}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	resp, err := client.ListGenerations("user-1", 0, 20)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Generations) != 2 {
+		t.Fatalf("expected 2 generations, got %d", len(resp.Generations))
+	}
+	if resp.Generations[0].ID != "gen-1" {
+		t.Errorf("expected first generation ID %q, got %q", "gen-1", resp.Generations[0].ID)
+	}
+	if resp.Generations[1].Status != "PENDING" {
+		t.Errorf("expected second generation status %q, got %q", "PENDING", resp.Generations[1].Status)
+	}
+}
+
+func TestAPIClient_ListGenerations_ReturnsErrorOnNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	_, err := client.ListGenerations("user-1", 0, 10)
+	if err == nil {
+		t.Fatal("expected error for 403 status, got nil")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Errorf("expected error to mention status 403, got %q", err.Error())
+	}
+}
+
+func TestAPIClient_ListGenerations_ReturnsRawResponseAlways(t *testing.T) {
+	expectedJSON := `{"generations":[]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(expectedJSON))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	resp, err := client.ListGenerations("user-1", 0, 10)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp.Raw) != expectedJSON {
+		t.Errorf("expected raw response %q, got %q", expectedJSON, string(resp.Raw))
+	}
+}
+
 // --- Behavior: Default HTTP client ---
 
 func TestAPIClient_UsesDefaultHTTPClientWhenNilProvided(t *testing.T) {

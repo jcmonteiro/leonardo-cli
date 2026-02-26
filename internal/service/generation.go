@@ -26,3 +26,18 @@ func (s *GenerationService) Create(req domain.GenerationRequest) (domain.Generat
 func (s *GenerationService) Status(id string) (domain.GenerationStatus, error) {
     return s.client.GetGenerationStatus(id)
 }
+
+// Delete removes a generation by its ID by delegating to the client.
+func (s *GenerationService) Delete(id string) (domain.DeleteResponse, error) {
+    return s.client.DeleteGeneration(id)
+}
+
+// UserInfo retrieves the authenticated user's account information by delegating to the client.
+func (s *GenerationService) UserInfo() (domain.UserInfo, error) {
+    return s.client.GetUserInfo()
+}
+
+// ListGenerations returns a paginated list of generations for a user by delegating to the client.
+func (s *GenerationService) ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error) {
+    return s.client.ListGenerations(userID, offset, limit)
+}

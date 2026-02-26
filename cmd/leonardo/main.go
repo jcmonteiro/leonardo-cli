@@ -20,6 +20,9 @@ func printUsage() {
     fmt.Fprintln(os.Stderr, "Commands:")
     fmt.Fprintln(os.Stderr, "  create   Create a new image generation")
     fmt.Fprintln(os.Stderr, "  status   Check the status of an existing generation")
+    fmt.Fprintln(os.Stderr, "  delete   Delete an existing generation")
+    fmt.Fprintln(os.Stderr, "  me       Show account info and token balances")
+    fmt.Fprintln(os.Stderr, "  list     List recent generations")
     fmt.Fprintln(os.Stderr, "Use \"", program, " <command> -h\" for more information about a command.")
 }
 
@@ -61,6 +64,60 @@ func checkGenerationStatus(svc *service.GenerationService, id string) error {
         fmt.Printf("Image %d URL: %s\n", i+1, url)
     }
     prettyPrintJSON(status.Raw)
+    return nil
+}
+
+// deleteGeneration wraps the service call to delete a generation and outputs
+// the result to the user.
+func deleteGeneration(svc *service.GenerationService, id string) error {
+    resp, err := svc.Delete(id)
+    if err != nil {
+        return err
+    }
+    if strings.TrimSpace(resp.ID) != "" {
+        fmt.Println("Deleted generation:", resp.ID)
+    }
+    prettyPrintJSON(resp.Raw)
+    return nil
+}
+
+// showUserInfo wraps the service call to retrieve account information and
+// outputs it to the user.
+func showUserInfo(svc *service.GenerationService) error {
+    info, err := svc.UserInfo()
+    if err != nil {
+        return err
+    }
+    if strings.TrimSpace(info.UserID) != "" {
+        fmt.Println("User ID:", info.UserID)
+    }
+    if strings.TrimSpace(info.Username) != "" {
+        fmt.Println("Username:", info.Username)
+    }
+    fmt.Println("API Subscription Tokens:", info.APISubscriptionTokens)
+    fmt.Println("API Paid Tokens:", info.APIPaidTokens)
+    if strings.TrimSpace(info.TokenRenewalDate) != "" {
+        fmt.Println("Token Renewal Date:", info.TokenRenewalDate)
+    }
+    prettyPrintJSON(info.Raw)
+    return nil
+}
+
+// listGenerations wraps the service call to list user generations and outputs
+// a summary to the user.
+func listGenerations(svc *service.GenerationService, userID string, offset, limit int) error {
+    resp, err := svc.ListGenerations(userID, offset, limit)
+    if err != nil {
+        return err
+    }
+    for _, gen := range resp.Generations {
+        fmt.Printf("[%s] %s — %s", gen.Status, gen.ID, gen.Prompt)
+        if len(gen.Images) > 0 {
+            fmt.Printf(" (%d images)", len(gen.Images))
+        }
+        fmt.Println()
+    }
+    prettyPrintJSON(resp.Raw)
     return nil
 }
 
@@ -137,6 +194,39 @@ func main() {
         }
         if err := checkGenerationStatus(svc, *id); err != nil {
             fmt.Fprintln(os.Stderr, "Error checking status:", err)
+            os.Exit(1)
+        }
+    case "delete":
+        deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+        id := deleteCmd.String("id", "", "Generation ID to delete (required)")
+        deleteCmd.Parse(os.Args[2:])
+        if strings.TrimSpace(*id) == "" {
+            fmt.Fprintln(os.Stderr, "Error: --id is required")
+            deleteCmd.Usage()
+            os.Exit(1)
+        }
+        if err := deleteGeneration(svc, *id); err != nil {
+            fmt.Fprintln(os.Stderr, "Error deleting generation:", err)
+            os.Exit(1)
+        }
+    case "me":
+        if err := showUserInfo(svc); err != nil {
+            fmt.Fprintln(os.Stderr, "Error getting user info:", err)
+            os.Exit(1)
+        }
+    case "list":
+        listCmd := flag.NewFlagSet("list", flag.ExitOnError)
+        userID := listCmd.String("user-id", "", "User ID to list generations for (required, use 'me' command to find your ID)")
+        offset := listCmd.Int("offset", 0, "Pagination offset")
+        limit := listCmd.Int("limit", 10, "Number of generations to return")
+        listCmd.Parse(os.Args[2:])
+        if strings.TrimSpace(*userID) == "" {
+            fmt.Fprintln(os.Stderr, "Error: --user-id is required (use 'me' command to find your user ID)")
+            listCmd.Usage()
+            os.Exit(1)
+        }
+        if err := listGenerations(svc, *userID, *offset, *limit); err != nil {
+            fmt.Fprintln(os.Stderr, "Error listing generations:", err)
             os.Exit(1)
         }
     case "help", "--help", "-h":

@@ -31,3 +31,37 @@ type GenerationStatus struct {
     Images []string
     Raw    []byte
 }
+
+// DeleteResponse represents the result of deleting a generation.
+// The ID field contains the identifier of the deleted generation.
+type DeleteResponse struct {
+    ID  string
+    Raw []byte
+}
+
+// UserInfo represents the authenticated user's account information including
+// identifiers and token balances used for API credit tracking.
+type UserInfo struct {
+    UserID                string
+    Username              string
+    APISubscriptionTokens int
+    APIPaidTokens         int
+    TokenRenewalDate      string
+    Raw                   []byte
+}
+
+// GenerationListItem represents a single generation in a list response.
+// It contains a subset of generation metadata along with any image URLs.
+type GenerationListItem struct {
+    ID        string
+    Status    string
+    CreatedAt string
+    Prompt    string
+    Images    []string
+}
+
+// GenerationListResponse represents a paginated list of user generations.
+type GenerationListResponse struct {
+    Generations []GenerationListItem
+    Raw         []byte
+}

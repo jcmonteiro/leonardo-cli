@@ -12,4 +12,10 @@ type LeonardoClient interface {
     // GetGenerationStatus retrieves the status of a previously created generation
     // by its generation ID.  It returns the status string and any image URLs.
     GetGenerationStatus(id string) (domain.GenerationStatus, error)
+    // DeleteGeneration removes a generation by its ID.
+    DeleteGeneration(id string) (domain.DeleteResponse, error)
+    // GetUserInfo retrieves the authenticated user's account information.
+    GetUserInfo() (domain.UserInfo, error)
+    // ListGenerations returns a paginated list of generations for a given user.
+    ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error)
 }
