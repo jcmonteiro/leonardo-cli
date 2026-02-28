@@ -90,6 +90,7 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 		Width:         1920,
 		Height:        1080,
 		NumImages:     4,
+		Private:       true,
 		Alchemy:       true,
 		Ultra:         true,
 		StyleUUID:     "style-uuid-99",
@@ -115,6 +116,9 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 	}
 	if captured.NumImages != req.NumImages {
 		t.Errorf("NumImages: got %d, want %d", captured.NumImages, req.NumImages)
+	}
+	if captured.Private != req.Private {
+		t.Errorf("Private: got %v, want %v", captured.Private, req.Private)
 	}
 	if captured.Alchemy != req.Alchemy {
 		t.Errorf("Alchemy: got %v, want %v", captured.Alchemy, req.Alchemy)
@@ -485,7 +489,7 @@ func TestDownload_UsesGenerationIDAndIndexInFilenames(t *testing.T) {
 			}, nil
 		},
 		downloadFn: func(url, destPath string) error {
-			return os.WriteFile(destPath, []byte("data"), 0600)
+			return os.WriteFile(destPath, []byte("data"), 0644)
 		},
 	}
 	svc := service.NewGenerationService(fake)

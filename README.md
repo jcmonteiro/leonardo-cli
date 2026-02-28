@@ -10,7 +10,7 @@
 ## Requirements
 
 * Go 1.20 or later to build from source.
-* A Leonardo.Ai API key with sufficient credits.  Set the key in your environment as `LEONARDO_API_KEY` before running the CLI.  You can obtain a key from your account’s **API Access** page on Leonardo.Ai.
+* A Leonardo.Ai API key with sufficient credits.  Set the key in your environment as `LEONARDO_API_TOKEN` before running the CLI.  You can obtain a key from your account’s **API Access** page on Leonardo.Ai.
 
 ## Installation
 
@@ -22,10 +22,10 @@ cd leonardo-cli
 go build -o leonardo ./cmd/leonardo
 ```
 
-Make sure your `LEONARDO_API_KEY` environment variable is exported:
+Make sure your `LEONARDO_API_TOKEN` environment variable is exported:
 
 ```sh
-export LEONARDO_API_KEY="your‑api‑key-here"
+export LEONARDO_API_TOKEN="your‑api‑key-here"
 ```
 
 ## Usage
@@ -47,11 +47,14 @@ The `create` command submits a new image generation request.  A prompt is requir
   --width 1920 \
   --height 1080 \
   --num-images 4 \
+  --private=true \
   --style-uuid 111dc692-d470-4eec-b791-3475abac4c46 \
   --contrast 3.5 \
   --alchemy=false \
   --ultra=false
 ```
+
+Set `--private=true` to explicitly request private images. You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
 
 If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  The generation ID can be used to poll for status.
 
@@ -79,7 +82,7 @@ When you download completed images, the CLI writes each image and a matching sid
 
 For an image like `./out/<generation-id>_1.png`, a sidecar `./out/<generation-id>_1.png.json` is also written.  The sidecar includes generation metadata such as generation ID, image index, timestamp, and generation parameters parsed from the API payload.
 
-Because metadata is saved from the decoded generation payload, newly added generation parameters are automatically preserved without requiring README or code updates for each new field.
+Because metadata is saved from the decoded generation payload, newly added generation parameters are automatically preserved without requiring code updates for each new field.
 
 ### Inspect a sidecar JSON file
 
