@@ -74,17 +74,19 @@ The full JSON response is printed for completeness.
 When you download completed images, the CLI writes each image and a matching sidecar JSON file:
 
 ```sh
-./leonardo download --id 123456-0987-aaaa-bbbb-01010101010 --output-dir ./out
+./leonardo download --id 12345678-90ab-cdef-1234-567890abcdef --output-dir ./out
 ```
 
-For an image like `./out/<generation-id>_1.png`, a sidecar `./out/<generation-id>_1.png.json` is also written.  The sidecar includes generation metadata such as generation ID, image index, timestamp, and generation parameters parsed from the API payload.  Because metadata is saved from the decoded generation payload, newly added generation parameters are automatically preserved without requiring README or code updates for each new field.
+For an image like `./out/<generation-id>_1.png`, a sidecar `./out/<generation-id>_1.png.json` is also written.  The sidecar includes generation metadata such as generation ID, image index, timestamp, and generation parameters parsed from the API payload.
+
+Because metadata is saved from the decoded generation payload, newly added generation parameters are automatically preserved without requiring README or code updates for each new field.
 
 ### Inspect a sidecar JSON file
 
 Use the `inspect` command to view sidecar metadata:
 
 ```sh
-./leonardo inspect --file ./out/<generation-id>_1.png.json
+./leonardo inspect --file ./out/12345678-90ab-cdef-1234-567890abcdef_1.png.json
 ```
 
 ## Architecture overview
