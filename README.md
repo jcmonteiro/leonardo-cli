@@ -8,7 +8,7 @@
 ## Requirements
 
 * Go 1.20 or later to build from source.
-* A Leonardo.Ai API key with sufficient credits.  Set the key in your environment as `LEONARDO_API_KEY` before running the CLI.  You can obtain a key from your account’s **API Access** page on Leonardo.Ai.
+* A Leonardo.Ai API key with sufficient credits.  Set the key in your environment as `LEONARDO_API_TOKEN` before running the CLI.  You can obtain a key from your account’s **API Access** page on Leonardo.Ai.
 
 ## Installation
 
@@ -20,10 +20,10 @@ cd leonardo-cli
 go build -o leonardo ./cmd/leonardo
 ```
 
-Make sure your `LEONARDO_API_KEY` environment variable is exported:
+Make sure your `LEONARDO_API_TOKEN` environment variable is exported:
 
 ```sh
-export LEONARDO_API_KEY="your‑api‑key-here"
+export LEONARDO_API_TOKEN="your‑api‑key-here"
 ```
 
 ## Usage
