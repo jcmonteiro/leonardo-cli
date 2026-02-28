@@ -1,6 +1,6 @@
 # leonardo-cli
 
-`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.
+`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.  This first version implements two primary commands:
 
 * `create` — Start a new text‑to‑image generation.  You can specify your prompt and optional parameters like model ID, image dimensions, number of images and more.
 * `status` — Check the progress of a previously started generation using its ID.  This command reports the status and prints any available image URLs once the job is complete.
