@@ -49,6 +49,9 @@ func (c *APIClient) CreateGeneration(req domain.GenerationRequest) (domain.Gener
     if req.Height > 0 {
         bodyMap["height"] = req.Height
     }
+    if req.Private {
+        bodyMap["public"] = false
+    }
     if req.Alchemy {
         bodyMap["alchemy"] = true
     }
