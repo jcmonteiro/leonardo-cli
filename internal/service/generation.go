@@ -77,6 +77,7 @@ func (s *GenerationService) Download(id, outputDir string) (domain.DownloadResul
 	return domain.DownloadResult{FilePaths: filePaths}, nil
 }
 
+// writeSidecarFile stores metadata next to a downloaded image in JSON format.
 func writeSidecarFile(imagePath, generationID string, imageIndex int, imageURL string, raw []byte) error {
 	sidecarPath := imagePath + ".json"
 	sidecar := map[string]interface{}{
@@ -98,9 +99,9 @@ func writeSidecarFile(imagePath, generationID string, imageIndex int, imageURL s
 
 	payload, err := json.MarshalIndent(sidecar, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encoding sidecar json: %w", err)
+		return fmt.Errorf("encoding sidecar JSON: %w", err)
 	}
-	if err := os.WriteFile(sidecarPath, payload, 0644); err != nil {
+	if err := os.WriteFile(sidecarPath, payload, 0600); err != nil {
 		return fmt.Errorf("writing sidecar file: %w", err)
 	}
 	return nil

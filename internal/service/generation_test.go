@@ -485,7 +485,7 @@ func TestDownload_UsesGenerationIDAndIndexInFilenames(t *testing.T) {
 			}, nil
 		},
 		downloadFn: func(url, destPath string) error {
-			return os.WriteFile(destPath, []byte("data"), 0644)
+			return os.WriteFile(destPath, []byte("data"), 0600)
 		},
 	}
 	svc := service.NewGenerationService(fake)
@@ -638,7 +638,7 @@ func TestDownload_WritesJSONSidecarForEachImage(t *testing.T) {
 			}, nil
 		},
 		downloadFn: func(url, destPath string) error {
-			return os.WriteFile(destPath, []byte("data"), 0644)
+			return os.WriteFile(destPath, []byte("data"), 0600)
 		},
 	}
 	svc := service.NewGenerationService(fake)
