@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -624,5 +625,57 @@ func TestDownload_PassesCorrectURLsToClient(t *testing.T) {
 	}
 	if capturedURLs[1] != "https://cdn.leonardo.ai/second.png" {
 		t.Errorf("expected second URL %q, got %q", "https://cdn.leonardo.ai/second.png", capturedURLs[1])
+	}
+}
+
+func TestDownload_WritesJSONSidecarForEachImage(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		statusFn: func(id string) (domain.GenerationStatus, error) {
+			return domain.GenerationStatus{
+				Status: "COMPLETE",
+				Images: []string{"https://cdn.leonardo.ai/img1.png"},
+				Raw:    []byte(`{"generations_by_pk":{"prompt":"sidecar prompt","modelId":"model-1","num_images":1}}`),
+			}, nil
+		},
+		downloadFn: func(url, destPath string) error {
+			return os.WriteFile(destPath, []byte("data"), 0644)
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	outputDir := t.TempDir()
+	result, err := svc.Download("gen-sidecar", outputDir)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(result.FilePaths) != 1 {
+		t.Fatalf("expected 1 file path, got %d", len(result.FilePaths))
+	}
+
+	sidecarPath := result.FilePaths[0] + ".json"
+	sidecarBytes, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		t.Fatalf("expected sidecar file to exist: %v", err)
+	}
+
+	var sidecar map[string]interface{}
+	if err := json.Unmarshal(sidecarBytes, &sidecar); err != nil {
+		t.Fatalf("expected valid sidecar JSON, got error: %v", err)
+	}
+	if sidecar["generation_id"] != "gen-sidecar" {
+		t.Errorf("expected generation_id %q, got %v", "gen-sidecar", sidecar["generation_id"])
+	}
+	if sidecar["image_url"] != "https://cdn.leonardo.ai/img1.png" {
+		t.Errorf("expected image_url %q, got %v", "https://cdn.leonardo.ai/img1.png", sidecar["image_url"])
+	}
+	if _, ok := sidecar["timestamp"]; !ok {
+		t.Error("expected sidecar timestamp to be present")
+	}
+	parameters, ok := sidecar["parameters"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected parameters map in sidecar, got %T", sidecar["parameters"])
+	}
+	if parameters["prompt"] != "sidecar prompt" {
+		t.Errorf("expected prompt in sidecar parameters, got %v", parameters["prompt"])
 	}
 }
