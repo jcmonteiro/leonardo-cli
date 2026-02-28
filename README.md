@@ -52,7 +52,7 @@ The `create` command submits a new image generation request.  A prompt is requir
   --ultra=false
 ```
 
-Set `--private=true` to explicitly request private images.  You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
+Set `--private=true` to explicitly request private images. You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
 
 If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  The generation ID can be used to poll for status.
 
