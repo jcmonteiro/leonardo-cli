@@ -49,6 +49,7 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 		ModelID:   "model-abc",
 		Width:     1024,
 		Height:    768,
+		Private:   true,
 		Alchemy:   true,
 	}
 
@@ -88,6 +89,9 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 	if receivedBody["alchemy"] != true {
 		t.Errorf("expected alchemy true, got %v", receivedBody["alchemy"])
 	}
+	if receivedBody["public"] != false {
+		t.Errorf("expected public false, got %v", receivedBody["public"])
+	}
 	if resp.GenerationID != "gen-from-server" {
 		t.Errorf("expected generation ID %q, got %q", "gen-from-server", resp.GenerationID)
 	}
@@ -117,7 +121,7 @@ func TestAPIClient_CreateGeneration_OmitsZeroValueOptionalFields(t *testing.T) {
 	}
 
 	// These optional fields should NOT be present in the payload
-	for _, key := range []string{"modelId", "width", "height", "alchemy", "ultra", "styleUUID", "contrast", "guidance_scale"} {
+	for _, key := range []string{"modelId", "width", "height", "public", "alchemy", "ultra", "styleUUID", "contrast", "guidance_scale"} {
 		if _, exists := receivedBody[key]; exists {
 			t.Errorf("expected optional field %q to be omitted, but it was present with value %v", key, receivedBody[key])
 		}

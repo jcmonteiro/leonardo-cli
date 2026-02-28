@@ -10,6 +10,7 @@ type GenerationRequest struct {
     Width         int     // optional image width
     Height        int     // optional image height
     NumImages     int     // optional number of images (default 1)
+    Private       bool    // optional flag to generate private images
     Alchemy       bool    // optional flag to enable Alchemy
     Ultra         bool    // optional flag to enable Ultra
     StyleUUID     string  // optional style UUID

@@ -6,6 +6,7 @@ import (
     "flag"
     "fmt"
     "os"
+    "strconv"
     "strings"
 
     "leonardo-cli/internal/domain"
@@ -34,6 +35,19 @@ func ensureAPIKey() (string, error) {
 		return "", fmt.Errorf("environment variable LEONARDO_API_TOKEN is not set")
 	}
     return key, nil
+}
+
+// defaultPrivateFromEnv returns whether image generations should default to private.
+func defaultPrivateFromEnv() bool {
+    privateValue := strings.TrimSpace(os.Getenv("LEONARDO_PRIVATE"))
+    if privateValue == "" {
+        return false
+    }
+    private, err := strconv.ParseBool(privateValue)
+    if err != nil {
+        return false
+    }
+    return private
 }
 
 // createGeneration wraps the service call to create a generation and outputs
@@ -168,6 +182,7 @@ func main() {
         width := createCmd.Int("width", 0, "Width of the generated image")
         height := createCmd.Int("height", 0, "Height of the generated image")
         numImages := createCmd.Int("num-images", 1, "Number of images to generate (1-8)")
+        private := createCmd.Bool("private", defaultPrivateFromEnv(), "Generate private images (can be set with LEONARDO_PRIVATE)")
         alchemy := createCmd.Bool("alchemy", false, "Enable Alchemy for advanced generation")
         ultra := createCmd.Bool("ultra", false, "Enable ultra mode for high fidelity generation")
         styleUUID := createCmd.String("style-uuid", "", "Optional style UUID to influence generation")
@@ -187,6 +202,7 @@ func main() {
             Width:         *width,
             Height:        *height,
             NumImages:     *numImages,
+            Private:       *private,
             Alchemy:       *alchemy,
             Ultra:         *ultra,
             StyleUUID:     *styleUUID,

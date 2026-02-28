@@ -45,11 +45,14 @@ The `create` command submits a new image generation request.  A prompt is requir
   --width 1920 \
   --height 1080 \
   --num-images 4 \
+  --private=true \
   --style-uuid 111dc692-d470-4eec-b791-3475abac4c46 \
   --contrast 3.5 \
   --alchemy=false \
   --ultra=false
 ```
+
+Set `--private=true` to explicitly request private images.  You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
 
 If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  The generation ID can be used to poll for status.
 
