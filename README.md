@@ -1,9 +1,11 @@
 # leonardo-cli
 
-`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.  This first version implements two primary commands:
+`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.
 
 * `create` — Start a new text‑to‑image generation.  You can specify your prompt and optional parameters like model ID, image dimensions, number of images and more.
 * `status` — Check the progress of a previously started generation using its ID.  This command reports the status and prints any available image URLs once the job is complete.
+* `download` — Download completed generation images locally and write a JSON sidecar metadata file next to each image.
+* `inspect` — Read and pretty-print a sidecar metadata JSON file.
 
 ## Requirements
 
@@ -66,6 +68,24 @@ Use the `status` command with the generation ID to check if your images are read
 The CLI will query `GET /api/rest/v1/generations/{id}`.  It attempts to extract the `status` and any image URLs from the response.  If the status is `PENDING`, no images will be returned.  According to Leonardo’s API FAQs, the `generated_images` array remains empty until the job is complete【271928005095238†L183-L201】.  Once the status is `COMPLETE`, the response contains URLs to the generated images.
 
 The full JSON response is printed for completeness.
+
+### Download images and sidecar metadata
+
+When you download completed images, the CLI writes each image and a matching sidecar JSON file:
+
+```sh
+./leonardo download --id 123456-0987-aaaa-bbbb-01010101010 --output-dir ./out
+```
+
+For an image like `./out/<generation-id>_1.png`, a sidecar `./out/<generation-id>_1.png.json` is also written.  The sidecar includes generation metadata such as generation ID, image index, timestamp, and generation parameters parsed from the API payload.  Because metadata is saved from the decoded generation payload, newly added generation parameters are automatically preserved without requiring README or code updates for each new field.
+
+### Inspect a sidecar JSON file
+
+Use the `inspect` command to view sidecar metadata:
+
+```sh
+./leonardo inspect --file ./out/<generation-id>_1.png.json
+```
 
 ## Architecture overview
 
