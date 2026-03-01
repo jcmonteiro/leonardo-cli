@@ -39,39 +39,39 @@ func (c *APIClient) CreateGeneration(req domain.GenerationRequest) (domain.Gener
 	metadata := req.Metadata
 	bodyMap := map[string]interface{}{
 		"prompt":     metadata.Prompt,
-		"num_images": req.NumImages,
+		"num_images": req.NumImagesOrDefault(),
 	}
-	if metadata.ModelID != "" {
+	if metadata.HasModelID() {
 		bodyMap["modelId"] = metadata.ModelID
 	}
-	if metadata.NegativePrompt != "" {
+	if metadata.HasNegativePrompt() {
 		bodyMap["negative_prompt"] = metadata.NegativePrompt
 	}
-	if metadata.Width > 0 {
+	if metadata.HasWidth() {
 		bodyMap["width"] = metadata.Width
 	}
-	if metadata.Height > 0 {
+	if metadata.HasHeight() {
 		bodyMap["height"] = metadata.Height
 	}
-	if req.Private {
+	if req.HasPrivate() {
 		bodyMap["public"] = false
 	}
-	if metadata.Alchemy {
+	if metadata.HasAlchemy() {
 		bodyMap["alchemy"] = true
 	}
-	if metadata.Ultra {
+	if metadata.HasUltra() {
 		bodyMap["ultra"] = true
 	}
-	if metadata.StyleUUID != "" {
+	if metadata.HasStyleUUID() {
 		bodyMap["styleUUID"] = metadata.StyleUUID
 	}
-	if metadata.Contrast > 0 {
+	if metadata.HasContrast() {
 		bodyMap["contrast"] = metadata.Contrast
 	}
-	if metadata.GuidanceScale > 0 {
+	if metadata.HasGuidanceScale() {
 		bodyMap["guidance_scale"] = metadata.GuidanceScale
 	}
-	if metadata.Seed > 0 {
+	if metadata.HasSeed() {
 		bodyMap["seed"] = metadata.Seed
 	}
 	// Marshal payload

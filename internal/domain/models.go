@@ -10,6 +10,24 @@ type GenerationRequest struct {
 	Metadata  GenerationMetadata
 }
 
+// HasNumImages indicates whether request includes an explicit number of images.
+func (r GenerationRequest) HasNumImages() bool {
+	return r.NumImages > 0
+}
+
+// NumImagesOrDefault returns the requested image count or the default value.
+func (r GenerationRequest) NumImagesOrDefault() int {
+	if r.HasNumImages() {
+		return r.NumImages
+	}
+	return 1
+}
+
+// HasPrivate indicates whether request asks for private generation visibility.
+func (r GenerationRequest) HasPrivate() bool {
+	return r.Private
+}
+
 // GenerationMetadata captures generation details stored in a local sidecar file. It is written when a generation request is created.
 type GenerationMetadata struct {
 	Prompt         string
@@ -60,6 +78,16 @@ func (m GenerationMetadata) HasHeight() bool {
 // HasTags indicates whether metadata contains one or more tags.
 func (m GenerationMetadata) HasTags() bool {
 	return len(m.Tags) > 0
+}
+
+// HasAlchemy indicates whether metadata contains Alchemy enabled.
+func (m GenerationMetadata) HasAlchemy() bool {
+	return m.Alchemy
+}
+
+// HasUltra indicates whether metadata contains Ultra enabled.
+func (m GenerationMetadata) HasUltra() bool {
+	return m.Ultra
 }
 
 // HasContrast indicates whether metadata contains a contrast value.
