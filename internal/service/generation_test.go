@@ -60,7 +60,9 @@ func TestCreate_ReturnsGenerationIDAndRawResponse(t *testing.T) {
 	}
 	svc := service.NewGenerationService(fake)
 
-	resp, err := svc.Create(domain.GenerationRequest{Prompt: "a sunset over the ocean"})
+	resp, err := svc.Create(domain.GenerationRequest{
+		Metadata: domain.GenerationMetadata{Prompt: "a sunset over the ocean"},
+	})
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -84,55 +86,74 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 	svc := service.NewGenerationService(fake)
 
 	req := domain.GenerationRequest{
-		Prompt:        "a castle in the clouds",
-		ModelID:       "model-42",
-		Width:         1920,
-		Height:        1080,
-		NumImages:     4,
-		Private:       true,
-		Alchemy:       true,
-		Ultra:         true,
-		StyleUUID:     "style-uuid-99",
-		Contrast:      3.5,
-		GuidanceScale: 7.0,
+		NumImages: 4,
+		Private:   true,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "a castle in the clouds",
+			NegativePrompt: "blurry",
+			ModelID:        "model-42",
+			Width:          1920,
+			Height:         1080,
+			Seed:           12345,
+			Tags:           []string{"fantasy", "castle"},
+			Alchemy:        true,
+			Ultra:          true,
+			StyleUUID:      "style-uuid-99",
+			Contrast:       3.5,
+			GuidanceScale:  7.0,
+		},
 	}
 	_, err := svc.Create(req)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if captured.Prompt != req.Prompt {
-		t.Errorf("Prompt: got %q, want %q", captured.Prompt, req.Prompt)
+	if captured.Metadata.Prompt != req.Metadata.Prompt {
+		t.Errorf("Prompt: got %q, want %q", captured.Metadata.Prompt, req.Metadata.Prompt)
 	}
-	if captured.ModelID != req.ModelID {
-		t.Errorf("ModelID: got %q, want %q", captured.ModelID, req.ModelID)
+	if captured.Metadata.ModelID != req.Metadata.ModelID {
+		t.Errorf("ModelID: got %q, want %q", captured.Metadata.ModelID, req.Metadata.ModelID)
 	}
-	if captured.Width != req.Width {
-		t.Errorf("Width: got %d, want %d", captured.Width, req.Width)
+	if captured.Metadata.NegativePrompt != req.Metadata.NegativePrompt {
+		t.Errorf("NegativePrompt: got %q, want %q", captured.Metadata.NegativePrompt, req.Metadata.NegativePrompt)
 	}
-	if captured.Height != req.Height {
-		t.Errorf("Height: got %d, want %d", captured.Height, req.Height)
+	if captured.Metadata.Width != req.Metadata.Width {
+		t.Errorf("Width: got %d, want %d", captured.Metadata.Width, req.Metadata.Width)
+	}
+	if captured.Metadata.Height != req.Metadata.Height {
+		t.Errorf("Height: got %d, want %d", captured.Metadata.Height, req.Metadata.Height)
 	}
 	if captured.NumImages != req.NumImages {
 		t.Errorf("NumImages: got %d, want %d", captured.NumImages, req.NumImages)
 	}
+	if captured.Metadata.Seed != req.Metadata.Seed {
+		t.Errorf("Seed: got %d, want %d", captured.Metadata.Seed, req.Metadata.Seed)
+	}
+	if len(captured.Metadata.Tags) != len(req.Metadata.Tags) {
+		t.Fatalf("Tags length: got %d, want %d", len(captured.Metadata.Tags), len(req.Metadata.Tags))
+	}
+	for i := range req.Metadata.Tags {
+		if captured.Metadata.Tags[i] != req.Metadata.Tags[i] {
+			t.Errorf("Tags[%d]: got %q, want %q", i, captured.Metadata.Tags[i], req.Metadata.Tags[i])
+		}
+	}
 	if captured.Private != req.Private {
 		t.Errorf("Private: got %v, want %v", captured.Private, req.Private)
 	}
-	if captured.Alchemy != req.Alchemy {
-		t.Errorf("Alchemy: got %v, want %v", captured.Alchemy, req.Alchemy)
+	if captured.Metadata.Alchemy != req.Metadata.Alchemy {
+		t.Errorf("Alchemy: got %v, want %v", captured.Metadata.Alchemy, req.Metadata.Alchemy)
 	}
-	if captured.Ultra != req.Ultra {
-		t.Errorf("Ultra: got %v, want %v", captured.Ultra, req.Ultra)
+	if captured.Metadata.Ultra != req.Metadata.Ultra {
+		t.Errorf("Ultra: got %v, want %v", captured.Metadata.Ultra, req.Metadata.Ultra)
 	}
-	if captured.StyleUUID != req.StyleUUID {
-		t.Errorf("StyleUUID: got %q, want %q", captured.StyleUUID, req.StyleUUID)
+	if captured.Metadata.StyleUUID != req.Metadata.StyleUUID {
+		t.Errorf("StyleUUID: got %q, want %q", captured.Metadata.StyleUUID, req.Metadata.StyleUUID)
 	}
-	if captured.Contrast != req.Contrast {
-		t.Errorf("Contrast: got %f, want %f", captured.Contrast, req.Contrast)
+	if captured.Metadata.Contrast != req.Metadata.Contrast {
+		t.Errorf("Contrast: got %f, want %f", captured.Metadata.Contrast, req.Metadata.Contrast)
 	}
-	if captured.GuidanceScale != req.GuidanceScale {
-		t.Errorf("GuidanceScale: got %f, want %f", captured.GuidanceScale, req.GuidanceScale)
+	if captured.Metadata.GuidanceScale != req.Metadata.GuidanceScale {
+		t.Errorf("GuidanceScale: got %f, want %f", captured.Metadata.GuidanceScale, req.Metadata.GuidanceScale)
 	}
 }
 
@@ -144,7 +165,9 @@ func TestCreate_PropagatesClientError(t *testing.T) {
 	}
 	svc := service.NewGenerationService(fake)
 
-	_, err := svc.Create(domain.GenerationRequest{Prompt: "anything"})
+	_, err := svc.Create(domain.GenerationRequest{
+		Metadata: domain.GenerationMetadata{Prompt: "anything"},
+	})
 
 	if err == nil {
 		t.Fatal("expected error, got nil")

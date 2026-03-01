@@ -5,17 +5,99 @@ package domain
 // can be added as required.  Fields with zero values will be omitted from the
 // request body by the provider layer.
 type GenerationRequest struct {
-	Prompt        string  // required text prompt
-	ModelID       string  // optional model identifier
-	Width         int     // optional image width
-	Height        int     // optional image height
-	NumImages     int     // optional number of images (default 1)
-	Private       bool    // when true, request private images; false keeps API default visibility
-	Alchemy       bool    // optional flag to enable Alchemy
-	Ultra         bool    // optional flag to enable Ultra
-	StyleUUID     string  // optional style UUID
-	Contrast      float64 // optional contrast adjustment
-	GuidanceScale float64 // optional guidance scale
+	NumImages int  // optional number of images (default 1)
+	Private   bool // when true, request private images; false keeps API default visibility
+	Metadata  GenerationMetadata
+}
+
+// HasNumImages indicates whether request includes an explicit number of images.
+func (r GenerationRequest) HasNumImages() bool {
+	return r.NumImages > 0
+}
+
+// NumImagesOrDefault returns the requested image count or the default value.
+func (r GenerationRequest) NumImagesOrDefault() int {
+	if r.HasNumImages() {
+		return r.NumImages
+	}
+	return 1
+}
+
+// HasPrivate indicates whether request asks for private generation visibility.
+func (r GenerationRequest) HasPrivate() bool {
+	return r.Private
+}
+
+// GenerationMetadata captures generation details stored in a local sidecar file. It is written when a generation request is created.
+type GenerationMetadata struct {
+	Prompt         string
+	NegativePrompt string
+	ModelID        string
+	StyleUUID      string
+	Seed           int
+	Width          int
+	Height         int
+	Timestamp      string
+	Tags           []string
+	Alchemy        bool
+	Ultra          bool
+	Contrast       float64
+	GuidanceScale  float64
+}
+
+// HasNegativePrompt indicates whether metadata contains a negative prompt value.
+func (m GenerationMetadata) HasNegativePrompt() bool {
+	return m.NegativePrompt != ""
+}
+
+// HasModelID indicates whether metadata contains a model identifier.
+func (m GenerationMetadata) HasModelID() bool {
+	return m.ModelID != ""
+}
+
+// HasStyleUUID indicates whether metadata contains a style UUID.
+func (m GenerationMetadata) HasStyleUUID() bool {
+	return m.StyleUUID != ""
+}
+
+// HasSeed indicates whether metadata contains a seed value.
+func (m GenerationMetadata) HasSeed() bool {
+	return m.Seed > 0
+}
+
+// HasWidth indicates whether metadata contains a width value.
+func (m GenerationMetadata) HasWidth() bool {
+	return m.Width > 0
+}
+
+// HasHeight indicates whether metadata contains a height value.
+func (m GenerationMetadata) HasHeight() bool {
+	return m.Height > 0
+}
+
+// HasTags indicates whether metadata contains one or more tags.
+func (m GenerationMetadata) HasTags() bool {
+	return len(m.Tags) > 0
+}
+
+// HasAlchemy indicates whether metadata contains Alchemy enabled.
+func (m GenerationMetadata) HasAlchemy() bool {
+	return m.Alchemy
+}
+
+// HasUltra indicates whether metadata contains Ultra enabled.
+func (m GenerationMetadata) HasUltra() bool {
+	return m.Ultra
+}
+
+// HasContrast indicates whether metadata contains a contrast value.
+func (m GenerationMetadata) HasContrast() bool {
+	return m.Contrast != 0
+}
+
+// HasGuidanceScale indicates whether metadata contains a guidance scale value.
+func (m GenerationMetadata) HasGuidanceScale() bool {
+	return m.GuidanceScale != 0
 }
 
 // GenerationResponse represents the response returned after creating a generation.

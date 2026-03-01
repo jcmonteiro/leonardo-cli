@@ -44,13 +44,17 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 	client = newClientWithBaseURL("test-api-key-123", server.URL)
 
 	req := domain.GenerationRequest{
-		Prompt:    "a beautiful landscape",
 		NumImages: 3,
-		ModelID:   "model-abc",
-		Width:     1024,
-		Height:    768,
 		Private:   true,
-		Alchemy:   true,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "a beautiful landscape",
+			NegativePrompt: "low quality",
+			ModelID:        "model-abc",
+			Width:          1024,
+			Height:         768,
+			Seed:           42,
+			Alchemy:        true,
+		},
 	}
 
 	resp, err := client.CreateGeneration(req)
@@ -80,6 +84,9 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 	if receivedBody["modelId"] != "model-abc" {
 		t.Errorf("expected modelId %q, got %v", "model-abc", receivedBody["modelId"])
 	}
+	if receivedBody["negative_prompt"] != "low quality" {
+		t.Errorf("expected negative_prompt %q, got %v", "low quality", receivedBody["negative_prompt"])
+	}
 	if receivedBody["width"] != 1024.0 {
 		t.Errorf("expected width 1024, got %v", receivedBody["width"])
 	}
@@ -91,6 +98,9 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 	}
 	if receivedBody["public"] != false {
 		t.Errorf("expected public false, got %v", receivedBody["public"])
+	}
+	if receivedBody["seed"] != 42.0 {
+		t.Errorf("expected seed 42, got %v", receivedBody["seed"])
 	}
 	if resp.GenerationID != "gen-from-server" {
 		t.Errorf("expected generation ID %q, got %q", "gen-from-server", resp.GenerationID)
@@ -112,8 +122,10 @@ func TestAPIClient_CreateGeneration_OmitsZeroValueOptionalFields(t *testing.T) {
 
 	// Only prompt and num_images provided — all other fields are zero-value
 	req := domain.GenerationRequest{
-		Prompt:    "minimal request",
 		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "minimal request",
+		},
 	}
 	_, err := client.CreateGeneration(req)
 	if err != nil {
@@ -121,7 +133,7 @@ func TestAPIClient_CreateGeneration_OmitsZeroValueOptionalFields(t *testing.T) {
 	}
 
 	// These optional fields should NOT be present in the payload
-	for _, key := range []string{"modelId", "width", "height", "public", "alchemy", "ultra", "styleUUID", "contrast", "guidance_scale"} {
+	for _, key := range []string{"modelId", "negative_prompt", "width", "height", "public", "alchemy", "ultra", "styleUUID", "contrast", "guidance_scale", "seed"} {
 		if _, exists := receivedBody[key]; exists {
 			t.Errorf("expected optional field %q to be omitted, but it was present with value %v", key, receivedBody[key])
 		}
@@ -141,7 +153,12 @@ func TestAPIClient_CreateGeneration_ReturnsErrorOnNon2xxStatus(t *testing.T) {
 
 	client := newClientWithBaseURL("bad-key", server.URL)
 
-	_, err := client.CreateGeneration(domain.GenerationRequest{Prompt: "test", NumImages: 1})
+	_, err := client.CreateGeneration(domain.GenerationRequest{
+		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "test",
+		},
+	})
 	if err == nil {
 		t.Fatal("expected error for 401 status, got nil")
 	}
@@ -164,16 +181,20 @@ func TestAPIClient_CreateGeneration_IncludesAllOptionalFields(t *testing.T) {
 	client := newClientWithBaseURL("key", server.URL)
 
 	req := domain.GenerationRequest{
-		Prompt:        "fully loaded request",
-		NumImages:     2,
-		ModelID:       "model-full",
-		Width:         512,
-		Height:        512,
-		Alchemy:       true,
-		Ultra:         true,
-		StyleUUID:     "style-123",
-		Contrast:      2.5,
-		GuidanceScale: 8.0,
+		NumImages: 2,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "fully loaded request",
+			NegativePrompt: "bad anatomy",
+			ModelID:        "model-full",
+			Width:          512,
+			Height:         512,
+			Seed:           777,
+			Alchemy:        true,
+			Ultra:          true,
+			StyleUUID:      "style-123",
+			Contrast:       2.5,
+			GuidanceScale:  8.0,
+		},
 	}
 	_, err := client.CreateGeneration(req)
 	if err != nil {
@@ -186,11 +207,17 @@ func TestAPIClient_CreateGeneration_IncludesAllOptionalFields(t *testing.T) {
 	if receivedBody["styleUUID"] != "style-123" {
 		t.Errorf("expected styleUUID %q, got %v", "style-123", receivedBody["styleUUID"])
 	}
+	if receivedBody["negative_prompt"] != "bad anatomy" {
+		t.Errorf("expected negative_prompt %q, got %v", "bad anatomy", receivedBody["negative_prompt"])
+	}
 	if receivedBody["contrast"] != 2.5 {
 		t.Errorf("expected contrast 2.5, got %v", receivedBody["contrast"])
 	}
 	if receivedBody["guidance_scale"] != 8.0 {
 		t.Errorf("expected guidance_scale 8.0, got %v", receivedBody["guidance_scale"])
+	}
+	if receivedBody["seed"] != 777.0 {
+		t.Errorf("expected seed 777, got %v", receivedBody["seed"])
 	}
 }
 
