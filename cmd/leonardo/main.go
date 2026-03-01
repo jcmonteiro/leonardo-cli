@@ -61,7 +61,7 @@ func createGeneration(svc *service.GenerationService, req domain.GenerationReque
 	if err != nil {
 		return err
 	}
-	sidecarPath, err := writeSidecarMetadata(req.Metadata, res.GenerationID)
+	sidecarPath, err := writeSidecarMetadata(req, res.GenerationID)
 	if err != nil {
 		return err
 	}
@@ -159,18 +159,18 @@ func downloadImages(svc *service.GenerationService, id, outputDir string) error 
 
 // writeSidecarMetadata writes a JSON metadata sidecar file named
 // {generationID}.json in the current directory.
-func writeSidecarMetadata(metadata domain.GenerationMetadata, generationID string) (string, error) {
+func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (string, error) {
 	if strings.TrimSpace(generationID) == "" {
 		return "", fmt.Errorf("generation ID is empty; cannot write sidecar metadata")
 	}
-	metadata.GenerationID = generationID
-	metadata.Timestamp = time.Now().UTC().Format(time.RFC3339)
+	metadata := req.Metadata
+	timestamp := time.Now().UTC().Format(time.RFC3339)
 	sidecar := map[string]interface{}{
 		"prompt":        metadata.Prompt,
-		"num_images":    metadata.NumImages,
-		"generation_id": metadata.GenerationID,
-		"timestamp":     metadata.Timestamp,
-		"private":       metadata.Private,
+		"num_images":    req.NumImages,
+		"generation_id": generationID,
+		"timestamp":     timestamp,
+		"private":       req.Private,
 		"alchemy":       metadata.Alchemy,
 		"ultra":         metadata.Ultra,
 	}
@@ -293,20 +293,8 @@ func main() {
 		}
 		// Build a domain request object.
 		req := domain.GenerationRequest{
-			Prompt:         *prompt,
-			NegativePrompt: *negativePrompt,
-			ModelID:        *modelId,
-			Width:          *width,
-			Height:         *height,
-			NumImages:      *numImages,
-			Seed:           *seed,
-			Tags:           parseTags(*tags),
-			Private:        *private,
-			Alchemy:        *alchemy,
-			Ultra:          *ultra,
-			StyleUUID:      *styleUUID,
-			Contrast:       *contrast,
-			GuidanceScale:  *guidanceScale,
+			NumImages: *numImages,
+			Private:   *private,
 			Metadata: domain.GenerationMetadata{
 				Prompt:         *prompt,
 				NegativePrompt: *negativePrompt,
@@ -315,9 +303,7 @@ func main() {
 				Seed:           *seed,
 				Width:          *width,
 				Height:         *height,
-				NumImages:      *numImages,
 				Tags:           parseTags(*tags),
-				Private:        *private,
 				Alchemy:        *alchemy,
 				Ultra:          *ultra,
 				Contrast:       *contrast,

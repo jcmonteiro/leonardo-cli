@@ -36,42 +36,43 @@ func NewAPIClient(apiKey string, httpClient *http.Client) *APIClient {
 // endpoint.  The response body is returned in the Raw field and the
 // generation ID (if any) is extracted.
 func (c *APIClient) CreateGeneration(req domain.GenerationRequest) (domain.GenerationResponse, error) {
+	metadata := req.Metadata
 	bodyMap := map[string]interface{}{
-		"prompt":     req.Prompt,
+		"prompt":     metadata.Prompt,
 		"num_images": req.NumImages,
 	}
-	if req.ModelID != "" {
-		bodyMap["modelId"] = req.ModelID
+	if metadata.ModelID != "" {
+		bodyMap["modelId"] = metadata.ModelID
 	}
-	if req.NegativePrompt != "" {
-		bodyMap["negative_prompt"] = req.NegativePrompt
+	if metadata.NegativePrompt != "" {
+		bodyMap["negative_prompt"] = metadata.NegativePrompt
 	}
-	if req.Width > 0 {
-		bodyMap["width"] = req.Width
+	if metadata.Width > 0 {
+		bodyMap["width"] = metadata.Width
 	}
-	if req.Height > 0 {
-		bodyMap["height"] = req.Height
+	if metadata.Height > 0 {
+		bodyMap["height"] = metadata.Height
 	}
 	if req.Private {
 		bodyMap["public"] = false
 	}
-	if req.Alchemy {
+	if metadata.Alchemy {
 		bodyMap["alchemy"] = true
 	}
-	if req.Ultra {
+	if metadata.Ultra {
 		bodyMap["ultra"] = true
 	}
-	if req.StyleUUID != "" {
-		bodyMap["styleUUID"] = req.StyleUUID
+	if metadata.StyleUUID != "" {
+		bodyMap["styleUUID"] = metadata.StyleUUID
 	}
-	if req.Contrast > 0 {
-		bodyMap["contrast"] = req.Contrast
+	if metadata.Contrast > 0 {
+		bodyMap["contrast"] = metadata.Contrast
 	}
-	if req.GuidanceScale > 0 {
-		bodyMap["guidance_scale"] = req.GuidanceScale
+	if metadata.GuidanceScale > 0 {
+		bodyMap["guidance_scale"] = metadata.GuidanceScale
 	}
-	if req.Seed > 0 {
-		bodyMap["seed"] = req.Seed
+	if metadata.Seed > 0 {
+		bodyMap["seed"] = metadata.Seed
 	}
 	// Marshal payload
 	payload, err := json.Marshal(bodyMap)

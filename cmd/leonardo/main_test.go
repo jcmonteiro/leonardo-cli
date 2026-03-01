@@ -23,24 +23,26 @@ func TestWriteSidecarMetadata_WritesExpectedJSON(t *testing.T) {
 	}
 	defer os.Chdir(origWD)
 
-	metadata := domain.GenerationMetadata{
-		Prompt:         "a lighthouse at dusk",
-		NegativePrompt: "low quality",
-		ModelID:        "model-123",
-		StyleUUID:      "style-456",
-		Seed:           99,
-		Width:          1024,
-		Height:         768,
-		NumImages:      2,
-		Tags:           []string{"landscape", "sunset"},
-		Private:        true,
-		Alchemy:        true,
-		Ultra:          false,
-		Contrast:       2.5,
-		GuidanceScale:  7.0,
+	req := domain.GenerationRequest{
+		NumImages: 2,
+		Private:   true,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "a lighthouse at dusk",
+			NegativePrompt: "low quality",
+			ModelID:        "model-123",
+			StyleUUID:      "style-456",
+			Seed:           99,
+			Width:          1024,
+			Height:         768,
+			Tags:           []string{"landscape", "sunset"},
+			Alchemy:        true,
+			Ultra:          false,
+			Contrast:       2.5,
+			GuidanceScale:  7.0,
+		},
 	}
 
-	path, err := writeSidecarMetadata(metadata, "gen-abc")
+	path, err := writeSidecarMetadata(req, "gen-abc")
 	if err != nil {
 		t.Fatalf("unexpected error writing sidecar: %v", err)
 	}
@@ -58,11 +60,11 @@ func TestWriteSidecarMetadata_WritesExpectedJSON(t *testing.T) {
 		t.Fatalf("parsing sidecar json: %v", err)
 	}
 
-	if got["prompt"] != metadata.Prompt {
-		t.Errorf("expected prompt %q, got %v", metadata.Prompt, got["prompt"])
+	if got["prompt"] != req.Metadata.Prompt {
+		t.Errorf("expected prompt %q, got %v", req.Metadata.Prompt, got["prompt"])
 	}
-	if got["negative_prompt"] != metadata.NegativePrompt {
-		t.Errorf("expected negative_prompt %q, got %v", metadata.NegativePrompt, got["negative_prompt"])
+	if got["negative_prompt"] != req.Metadata.NegativePrompt {
+		t.Errorf("expected negative_prompt %q, got %v", req.Metadata.NegativePrompt, got["negative_prompt"])
 	}
 	if got["generation_id"] != "gen-abc" {
 		t.Errorf("expected generation_id %q, got %v", "gen-abc", got["generation_id"])

@@ -40,8 +40,10 @@ func TestIntegration_CreateAndPollGeneration(t *testing.T) {
 
 	// Create a generation with a simple prompt
 	req := domain.GenerationRequest{
-		Prompt:    "A simple red circle on a white background",
 		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "A simple red circle on a white background",
+		},
 	}
 
 	resp, err := client.CreateGeneration(req)
@@ -157,8 +159,10 @@ func TestIntegration_DeleteGeneration(t *testing.T) {
 
 	// Create a generation to delete
 	req := domain.GenerationRequest{
-		Prompt:    "A tiny dot for deletion test",
 		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "A tiny dot for deletion test",
+		},
 	}
 	createResp, err := client.CreateGeneration(req)
 	if err != nil {
@@ -198,8 +202,10 @@ func TestIntegration_DownloadImage(t *testing.T) {
 
 	// Create a generation and wait for it to complete
 	req := domain.GenerationRequest{
-		Prompt:    "A small blue square on a white background",
 		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "A small blue square on a white background",
+		},
 	}
 	createResp, err := client.CreateGeneration(req)
 	if err != nil {

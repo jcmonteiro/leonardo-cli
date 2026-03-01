@@ -44,15 +44,17 @@ func TestAPIClient_CreateGeneration_SendsCorrectHTTPRequest(t *testing.T) {
 	client = newClientWithBaseURL("test-api-key-123", server.URL)
 
 	req := domain.GenerationRequest{
-		Prompt:         "a beautiful landscape",
-		NegativePrompt: "low quality",
-		NumImages:      3,
-		ModelID:        "model-abc",
-		Width:          1024,
-		Height:         768,
-		Seed:           42,
-		Private:        true,
-		Alchemy:        true,
+		NumImages: 3,
+		Private:   true,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "a beautiful landscape",
+			NegativePrompt: "low quality",
+			ModelID:        "model-abc",
+			Width:          1024,
+			Height:         768,
+			Seed:           42,
+			Alchemy:        true,
+		},
 	}
 
 	resp, err := client.CreateGeneration(req)
@@ -120,8 +122,10 @@ func TestAPIClient_CreateGeneration_OmitsZeroValueOptionalFields(t *testing.T) {
 
 	// Only prompt and num_images provided — all other fields are zero-value
 	req := domain.GenerationRequest{
-		Prompt:    "minimal request",
 		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "minimal request",
+		},
 	}
 	_, err := client.CreateGeneration(req)
 	if err != nil {
@@ -149,7 +153,12 @@ func TestAPIClient_CreateGeneration_ReturnsErrorOnNon2xxStatus(t *testing.T) {
 
 	client := newClientWithBaseURL("bad-key", server.URL)
 
-	_, err := client.CreateGeneration(domain.GenerationRequest{Prompt: "test", NumImages: 1})
+	_, err := client.CreateGeneration(domain.GenerationRequest{
+		NumImages: 1,
+		Metadata: domain.GenerationMetadata{
+			Prompt: "test",
+		},
+	})
 	if err == nil {
 		t.Fatal("expected error for 401 status, got nil")
 	}
@@ -172,18 +181,20 @@ func TestAPIClient_CreateGeneration_IncludesAllOptionalFields(t *testing.T) {
 	client := newClientWithBaseURL("key", server.URL)
 
 	req := domain.GenerationRequest{
-		Prompt:         "fully loaded request",
-		NegativePrompt: "bad anatomy",
-		NumImages:      2,
-		ModelID:        "model-full",
-		Width:          512,
-		Height:         512,
-		Seed:           777,
-		Alchemy:        true,
-		Ultra:          true,
-		StyleUUID:      "style-123",
-		Contrast:       2.5,
-		GuidanceScale:  8.0,
+		NumImages: 2,
+		Metadata: domain.GenerationMetadata{
+			Prompt:         "fully loaded request",
+			NegativePrompt: "bad anatomy",
+			ModelID:        "model-full",
+			Width:          512,
+			Height:         512,
+			Seed:           777,
+			Alchemy:        true,
+			Ultra:          true,
+			StyleUUID:      "style-123",
+			Contrast:       2.5,
+			GuidanceScale:  8.0,
+		},
 	}
 	_, err := client.CreateGeneration(req)
 	if err != nil {
