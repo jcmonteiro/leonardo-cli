@@ -79,12 +79,12 @@ func (m GenerationMetadata) HasTags() bool {
 
 // HasContrast indicates whether metadata contains a contrast value.
 func (m GenerationMetadata) HasContrast() bool {
-	return m.Contrast > 0
+	return m.Contrast != 0
 }
 
 // HasGuidanceScale indicates whether metadata contains a guidance scale value.
 func (m GenerationMetadata) HasGuidanceScale() bool {
-	return m.GuidanceScale > 0
+	return m.GuidanceScale != 0
 }
 
 // GenerationResponse represents the response returned after creating a generation.
