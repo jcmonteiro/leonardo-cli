@@ -21,6 +21,27 @@ type GenerationRequest struct {
 	GuidanceScale  float64  // optional guidance scale
 }
 
+// GenerationMetadata captures generation details stored in a local sidecar JSON
+// file when a generation request is created.
+type GenerationMetadata struct {
+	Prompt         string   `json:"prompt"`
+	NegativePrompt string   `json:"negative_prompt,omitempty"`
+	ModelID        string   `json:"model_id,omitempty"`
+	StyleUUID      string   `json:"style_uuid,omitempty"`
+	Seed           int      `json:"seed,omitempty"`
+	Width          int      `json:"width,omitempty"`
+	Height         int      `json:"height,omitempty"`
+	NumImages      int      `json:"num_images,omitempty"`
+	GenerationID   string   `json:"generation_id"`
+	Timestamp      string   `json:"timestamp"`
+	Tags           []string `json:"tags,omitempty"`
+	Private        bool     `json:"private"`
+	Alchemy        bool     `json:"alchemy"`
+	Ultra          bool     `json:"ultra"`
+	Contrast       float64  `json:"contrast,omitempty"`
+	GuidanceScale  float64  `json:"guidance_scale,omitempty"`
+}
+
 // GenerationResponse represents the response returned after creating a generation.
 // It exposes the generation ID (if present) along with the raw JSON returned by the API.
 type GenerationResponse struct {

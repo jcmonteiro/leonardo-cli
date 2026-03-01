@@ -157,34 +157,13 @@ func downloadImages(svc *service.GenerationService, id, outputDir string) error 
 	return nil
 }
 
-// sidecarMetadata captures generation request and identification details that
-// are persisted to a local JSON sidecar file when a generation is created.
-type sidecarMetadata struct {
-	Prompt         string   `json:"prompt"`
-	NegativePrompt string   `json:"negative_prompt,omitempty"`
-	ModelID        string   `json:"model_id,omitempty"`
-	StyleUUID      string   `json:"style_uuid,omitempty"`
-	Seed           int      `json:"seed,omitempty"`
-	Width          int      `json:"width,omitempty"`
-	Height         int      `json:"height,omitempty"`
-	NumImages      int      `json:"num_images,omitempty"`
-	GenerationID   string   `json:"generation_id"`
-	Timestamp      string   `json:"timestamp"`
-	Tags           []string `json:"tags,omitempty"`
-	Private        bool     `json:"private"`
-	Alchemy        bool     `json:"alchemy"`
-	Ultra          bool     `json:"ultra"`
-	Contrast       float64  `json:"contrast,omitempty"`
-	GuidanceScale  float64  `json:"guidance_scale,omitempty"`
-}
-
 // writeSidecarMetadata writes a JSON metadata sidecar file named
 // {generationID}.json in the current directory.
 func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (string, error) {
 	if strings.TrimSpace(generationID) == "" {
 		return "", fmt.Errorf("generation ID is empty; cannot write sidecar metadata")
 	}
-	metadata := sidecarMetadata{
+	metadata := domain.GenerationMetadata{
 		Prompt:         req.Prompt,
 		NegativePrompt: req.NegativePrompt,
 		ModelID:        req.ModelID,
