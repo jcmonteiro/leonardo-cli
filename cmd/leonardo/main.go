@@ -181,7 +181,43 @@ func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (st
 		Contrast:       req.Contrast,
 		GuidanceScale:  req.GuidanceScale,
 	}
-	data, err := json.MarshalIndent(metadata, "", "  ")
+	sidecar := map[string]interface{}{
+		"prompt":        metadata.Prompt,
+		"num_images":    metadata.NumImages,
+		"generation_id": metadata.GenerationID,
+		"timestamp":     metadata.Timestamp,
+		"private":       metadata.Private,
+		"alchemy":       metadata.Alchemy,
+		"ultra":         metadata.Ultra,
+	}
+	if metadata.NegativePrompt != "" {
+		sidecar["negative_prompt"] = metadata.NegativePrompt
+	}
+	if metadata.ModelID != "" {
+		sidecar["model_id"] = metadata.ModelID
+	}
+	if metadata.StyleUUID != "" {
+		sidecar["style_uuid"] = metadata.StyleUUID
+	}
+	if metadata.Seed > 0 {
+		sidecar["seed"] = metadata.Seed
+	}
+	if metadata.Width > 0 {
+		sidecar["width"] = metadata.Width
+	}
+	if metadata.Height > 0 {
+		sidecar["height"] = metadata.Height
+	}
+	if len(metadata.Tags) > 0 {
+		sidecar["tags"] = metadata.Tags
+	}
+	if metadata.Contrast > 0 {
+		sidecar["contrast"] = metadata.Contrast
+	}
+	if metadata.GuidanceScale > 0 {
+		sidecar["guidance_scale"] = metadata.GuidanceScale
+	}
+	data, err := json.MarshalIndent(sidecar, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encoding sidecar metadata: %w", err)
 	}
