@@ -26,6 +26,12 @@ Make sure your `LEONARDO_API_TOKEN` environment variable is exported:
 export LEONARDO_API_TOKEN="your‑api‑key-here"
 ```
 
+To run formatting and lint checks automatically before each commit, enable the repository hooks once:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 ## Usage
 
 Run `leonardo` without any arguments to see the available commands:
