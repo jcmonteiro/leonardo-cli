@@ -32,6 +32,8 @@ To run formatting and lint checks automatically before each commit, enable the r
 git config core.hooksPath .githooks
 ```
 
+The hook expects `golangci-lint` to be available in your `PATH`.
+
 ## Usage
 
 Run `leonardo` without any arguments to see the available commands:
