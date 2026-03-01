@@ -23,7 +23,7 @@ func TestWriteSidecarMetadata_WritesExpectedJSON(t *testing.T) {
 	}
 	defer os.Chdir(origWD)
 
-	req := domain.GenerationRequest{
+	metadata := domain.GenerationMetadata{
 		Prompt:         "a lighthouse at dusk",
 		NegativePrompt: "low quality",
 		ModelID:        "model-123",
@@ -40,7 +40,7 @@ func TestWriteSidecarMetadata_WritesExpectedJSON(t *testing.T) {
 		GuidanceScale:  7.0,
 	}
 
-	path, err := writeSidecarMetadata(req, "gen-abc")
+	path, err := writeSidecarMetadata(metadata, "gen-abc")
 	if err != nil {
 		t.Fatalf("unexpected error writing sidecar: %v", err)
 	}
@@ -58,11 +58,11 @@ func TestWriteSidecarMetadata_WritesExpectedJSON(t *testing.T) {
 		t.Fatalf("parsing sidecar json: %v", err)
 	}
 
-	if got["prompt"] != req.Prompt {
-		t.Errorf("expected prompt %q, got %v", req.Prompt, got["prompt"])
+	if got["prompt"] != metadata.Prompt {
+		t.Errorf("expected prompt %q, got %v", metadata.Prompt, got["prompt"])
 	}
-	if got["negative_prompt"] != req.NegativePrompt {
-		t.Errorf("expected negative_prompt %q, got %v", req.NegativePrompt, got["negative_prompt"])
+	if got["negative_prompt"] != metadata.NegativePrompt {
+		t.Errorf("expected negative_prompt %q, got %v", metadata.NegativePrompt, got["negative_prompt"])
 	}
 	if got["generation_id"] != "gen-abc" {
 		t.Errorf("expected generation_id %q, got %v", "gen-abc", got["generation_id"])

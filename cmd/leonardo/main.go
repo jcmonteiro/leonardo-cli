@@ -61,7 +61,7 @@ func createGeneration(svc *service.GenerationService, req domain.GenerationReque
 	if err != nil {
 		return err
 	}
-	sidecarPath, err := writeSidecarMetadata(req, res.GenerationID)
+	sidecarPath, err := writeSidecarMetadata(req.Metadata, res.GenerationID)
 	if err != nil {
 		return err
 	}
@@ -159,28 +159,12 @@ func downloadImages(svc *service.GenerationService, id, outputDir string) error 
 
 // writeSidecarMetadata writes a JSON metadata sidecar file named
 // {generationID}.json in the current directory.
-func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (string, error) {
+func writeSidecarMetadata(metadata domain.GenerationMetadata, generationID string) (string, error) {
 	if strings.TrimSpace(generationID) == "" {
 		return "", fmt.Errorf("generation ID is empty; cannot write sidecar metadata")
 	}
-	metadata := domain.GenerationMetadata{
-		Prompt:         req.Prompt,
-		NegativePrompt: req.NegativePrompt,
-		ModelID:        req.ModelID,
-		StyleUUID:      req.StyleUUID,
-		Seed:           req.Seed,
-		Width:          req.Width,
-		Height:         req.Height,
-		NumImages:      req.NumImages,
-		GenerationID:   generationID,
-		Timestamp:      time.Now().UTC().Format(time.RFC3339),
-		Tags:           req.Tags,
-		Private:        req.Private,
-		Alchemy:        req.Alchemy,
-		Ultra:          req.Ultra,
-		Contrast:       req.Contrast,
-		GuidanceScale:  req.GuidanceScale,
-	}
+	metadata.GenerationID = generationID
+	metadata.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	sidecar := map[string]interface{}{
 		"prompt":        metadata.Prompt,
 		"num_images":    metadata.NumImages,
@@ -190,31 +174,31 @@ func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (st
 		"alchemy":       metadata.Alchemy,
 		"ultra":         metadata.Ultra,
 	}
-	if metadata.NegativePrompt != "" {
+	if metadata.HasNegativePrompt() {
 		sidecar["negative_prompt"] = metadata.NegativePrompt
 	}
-	if metadata.ModelID != "" {
+	if metadata.HasModelID() {
 		sidecar["model_id"] = metadata.ModelID
 	}
-	if metadata.StyleUUID != "" {
+	if metadata.HasStyleUUID() {
 		sidecar["style_uuid"] = metadata.StyleUUID
 	}
-	if metadata.Seed > 0 {
+	if metadata.HasSeed() {
 		sidecar["seed"] = metadata.Seed
 	}
-	if metadata.Width > 0 {
+	if metadata.HasWidth() {
 		sidecar["width"] = metadata.Width
 	}
-	if metadata.Height > 0 {
+	if metadata.HasHeight() {
 		sidecar["height"] = metadata.Height
 	}
-	if len(metadata.Tags) > 0 {
+	if metadata.HasTags() {
 		sidecar["tags"] = metadata.Tags
 	}
-	if metadata.Contrast > 0 {
+	if metadata.HasContrast() {
 		sidecar["contrast"] = metadata.Contrast
 	}
-	if metadata.GuidanceScale > 0 {
+	if metadata.HasGuidanceScale() {
 		sidecar["guidance_scale"] = metadata.GuidanceScale
 	}
 	data, err := json.MarshalIndent(sidecar, "", "  ")
@@ -323,6 +307,22 @@ func main() {
 			StyleUUID:      *styleUUID,
 			Contrast:       *contrast,
 			GuidanceScale:  *guidanceScale,
+			Metadata: domain.GenerationMetadata{
+				Prompt:         *prompt,
+				NegativePrompt: *negativePrompt,
+				ModelID:        *modelId,
+				StyleUUID:      *styleUUID,
+				Seed:           *seed,
+				Width:          *width,
+				Height:         *height,
+				NumImages:      *numImages,
+				Tags:           parseTags(*tags),
+				Private:        *private,
+				Alchemy:        *alchemy,
+				Ultra:          *ultra,
+				Contrast:       *contrast,
+				GuidanceScale:  *guidanceScale,
+			},
 		}
 		if err := createGeneration(svc, req); err != nil {
 			fmt.Fprintln(os.Stderr, "Error creating generation:", err)
