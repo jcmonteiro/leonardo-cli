@@ -5,17 +5,20 @@ package domain
 // can be added as required.  Fields with zero values will be omitted from the
 // request body by the provider layer.
 type GenerationRequest struct {
-	Prompt        string  // required text prompt
-	ModelID       string  // optional model identifier
-	Width         int     // optional image width
-	Height        int     // optional image height
-	NumImages     int     // optional number of images (default 1)
-	Private       bool    // when true, request private images; false keeps API default visibility
-	Alchemy       bool    // optional flag to enable Alchemy
-	Ultra         bool    // optional flag to enable Ultra
-	StyleUUID     string  // optional style UUID
-	Contrast      float64 // optional contrast adjustment
-	GuidanceScale float64 // optional guidance scale
+	Prompt         string   // required text prompt
+	NegativePrompt string   // optional negative prompt
+	ModelID        string   // optional model identifier
+	Width          int      // optional image width
+	Height         int      // optional image height
+	NumImages      int      // optional number of images (default 1)
+	Seed           int      // optional generation seed
+	Tags           []string // optional user-defined metadata tags
+	Private        bool     // when true, request private images; false keeps API default visibility
+	Alchemy        bool     // optional flag to enable Alchemy
+	Ultra          bool     // optional flag to enable Ultra
+	StyleUUID      string   // optional style UUID
+	Contrast       float64  // optional contrast adjustment
+	GuidanceScale  float64  // optional guidance scale
 }
 
 // GenerationResponse represents the response returned after creating a generation.

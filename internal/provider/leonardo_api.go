@@ -43,6 +43,9 @@ func (c *APIClient) CreateGeneration(req domain.GenerationRequest) (domain.Gener
 	if req.ModelID != "" {
 		bodyMap["modelId"] = req.ModelID
 	}
+	if req.NegativePrompt != "" {
+		bodyMap["negative_prompt"] = req.NegativePrompt
+	}
 	if req.Width > 0 {
 		bodyMap["width"] = req.Width
 	}
@@ -66,6 +69,9 @@ func (c *APIClient) CreateGeneration(req domain.GenerationRequest) (domain.Gener
 	}
 	if req.GuidanceScale > 0 {
 		bodyMap["guidance_scale"] = req.GuidanceScale
+	}
+	if req.Seed > 0 {
+		bodyMap["seed"] = req.Seed
 	}
 	// Marshal payload
 	payload, err := json.Marshal(bodyMap)

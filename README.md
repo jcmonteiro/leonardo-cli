@@ -1,9 +1,10 @@
 # leonardo-cli
 
-`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.  This first version implements two primary commands:
+`leonardo-cli` is a simple command‑line tool written in Go that wraps parts of the [Leonardo.Ai API](https://docs.leonardo.ai/).  It allows you to kick off image generation jobs and poll their status from your own scripts or terminals.  Under the hood the code is organised following [hexagonal/clean architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture) so that core logic and domain models are isolated from external dependencies such as HTTP clients or the CLI itself.  This first version implements the primary workflow commands:
 
 * `create` — Start a new text‑to‑image generation.  You can specify your prompt and optional parameters like model ID, image dimensions, number of images and more.
 * `status` — Check the progress of a previously started generation using its ID.  This command reports the status and prints any available image URLs once the job is complete.
+* `inspect` — Read a saved JSON sidecar metadata file and print it in a human-friendly format.
 
 ## Requirements
 
@@ -53,6 +54,9 @@ The `create` command submits a new image generation request.  A prompt is requir
   --width 1920 \
   --height 1080 \
   --num-images 4 \
+  --negative-prompt "blurry, low quality" \
+  --seed 1234 \
+  --tags "watercolor,landscape" \
   --private=true \
   --style-uuid 111dc692-d470-4eec-b791-3475abac4c46 \
   --contrast 3.5 \
@@ -62,7 +66,7 @@ The `create` command submits a new image generation request.  A prompt is requir
 
 Set `--private=true` to explicitly request private images. You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
 
-If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  The generation ID can be used to poll for status.
+If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  It also writes a sidecar metadata JSON file named `{generationId}.json` in the current directory.  The generation ID can be used to poll for status.
 
 In the [Quick Start Guide](https://docs.leonardo.ai/docs/getting-started), Leonardo explains that after submitting a generation you receive an identifier (often called `generationId`) that is used in subsequent calls【202409399148263†L150-L176】.
 
@@ -77,6 +81,14 @@ Use the `status` command with the generation ID to check if your images are read
 The CLI will query `GET /api/rest/v1/generations/{id}`.  It attempts to extract the `status` and any image URLs from the response.  If the status is `PENDING`, no images will be returned.  According to Leonardo’s API FAQs, the `generated_images` array remains empty until the job is complete【271928005095238†L183-L201】.  Once the status is `COMPLETE`, the response contains URLs to the generated images.
 
 The full JSON response is printed for completeness.
+
+### Inspect sidecar metadata
+
+Use the `inspect` command with the sidecar file path to display its contents:
+
+```sh
+./leonardo inspect --file ./123456-0987-aaaa-bbbb-01010101010.json
+```
 
 ## Architecture overview
 

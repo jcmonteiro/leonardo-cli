@@ -84,17 +84,20 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 	svc := service.NewGenerationService(fake)
 
 	req := domain.GenerationRequest{
-		Prompt:        "a castle in the clouds",
-		ModelID:       "model-42",
-		Width:         1920,
-		Height:        1080,
-		NumImages:     4,
-		Private:       true,
-		Alchemy:       true,
-		Ultra:         true,
-		StyleUUID:     "style-uuid-99",
-		Contrast:      3.5,
-		GuidanceScale: 7.0,
+		Prompt:         "a castle in the clouds",
+		NegativePrompt: "blurry",
+		ModelID:        "model-42",
+		Width:          1920,
+		Height:         1080,
+		NumImages:      4,
+		Seed:           12345,
+		Tags:           []string{"fantasy", "castle"},
+		Private:        true,
+		Alchemy:        true,
+		Ultra:          true,
+		StyleUUID:      "style-uuid-99",
+		Contrast:       3.5,
+		GuidanceScale:  7.0,
 	}
 	_, err := svc.Create(req)
 
@@ -107,6 +110,9 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 	if captured.ModelID != req.ModelID {
 		t.Errorf("ModelID: got %q, want %q", captured.ModelID, req.ModelID)
 	}
+	if captured.NegativePrompt != req.NegativePrompt {
+		t.Errorf("NegativePrompt: got %q, want %q", captured.NegativePrompt, req.NegativePrompt)
+	}
 	if captured.Width != req.Width {
 		t.Errorf("Width: got %d, want %d", captured.Width, req.Width)
 	}
@@ -115,6 +121,17 @@ func TestCreate_PassesAllRequestFieldsToClient(t *testing.T) {
 	}
 	if captured.NumImages != req.NumImages {
 		t.Errorf("NumImages: got %d, want %d", captured.NumImages, req.NumImages)
+	}
+	if captured.Seed != req.Seed {
+		t.Errorf("Seed: got %d, want %d", captured.Seed, req.Seed)
+	}
+	if len(captured.Tags) != len(req.Tags) {
+		t.Fatalf("Tags length: got %d, want %d", len(captured.Tags), len(req.Tags))
+	}
+	for i := range req.Tags {
+		if captured.Tags[i] != req.Tags[i] {
+			t.Errorf("Tags[%d]: got %q, want %q", i, captured.Tags[i], req.Tags[i])
+		}
 	}
 	if captured.Private != req.Private {
 		t.Errorf("Private: got %v, want %v", captured.Private, req.Private)

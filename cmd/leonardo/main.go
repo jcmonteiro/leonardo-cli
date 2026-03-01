@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"leonardo-cli/internal/domain"
 	"leonardo-cli/internal/provider"
@@ -25,6 +27,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  me       Show account info and token balances")
 	fmt.Fprintln(os.Stderr, "  list     List recent generations")
 	fmt.Fprintln(os.Stderr, "  download Download images for a completed generation")
+	fmt.Fprintln(os.Stderr, "  inspect  Inspect a sidecar metadata JSON file")
 	fmt.Fprintln(os.Stderr, "Use \"", program, " <command> -h\" for more information about a command.")
 }
 
@@ -58,9 +61,14 @@ func createGeneration(svc *service.GenerationService, req domain.GenerationReque
 	if err != nil {
 		return err
 	}
+	sidecarPath, err := writeSidecarMetadata(req, res.GenerationID)
+	if err != nil {
+		return err
+	}
 	if strings.TrimSpace(res.GenerationID) != "" {
 		fmt.Println("Generation ID:", res.GenerationID)
 	}
+	fmt.Println("Sidecar metadata:", sidecarPath)
 	prettyPrintJSON(res.Raw)
 	return nil
 }
@@ -149,6 +157,92 @@ func downloadImages(svc *service.GenerationService, id, outputDir string) error 
 	return nil
 }
 
+// sidecarMetadata captures generation request and identification details that
+// are persisted to a local JSON sidecar file when a generation is created.
+type sidecarMetadata struct {
+	Prompt         string   `json:"prompt"`
+	NegativePrompt string   `json:"negative_prompt,omitempty"`
+	ModelID        string   `json:"model_id,omitempty"`
+	StyleUUID      string   `json:"style_uuid,omitempty"`
+	Seed           int      `json:"seed,omitempty"`
+	Width          int      `json:"width,omitempty"`
+	Height         int      `json:"height,omitempty"`
+	NumImages      int      `json:"num_images,omitempty"`
+	GenerationID   string   `json:"generation_id"`
+	Timestamp      string   `json:"timestamp"`
+	Tags           []string `json:"tags,omitempty"`
+	Private        bool     `json:"private"`
+	Alchemy        bool     `json:"alchemy"`
+	Ultra          bool     `json:"ultra"`
+	Contrast       float64  `json:"contrast,omitempty"`
+	GuidanceScale  float64  `json:"guidance_scale,omitempty"`
+}
+
+// writeSidecarMetadata writes a JSON metadata sidecar file named
+// {generationID}.json in the current directory.
+func writeSidecarMetadata(req domain.GenerationRequest, generationID string) (string, error) {
+	if strings.TrimSpace(generationID) == "" {
+		return "", fmt.Errorf("generation ID is empty; cannot write sidecar metadata")
+	}
+	metadata := sidecarMetadata{
+		Prompt:         req.Prompt,
+		NegativePrompt: req.NegativePrompt,
+		ModelID:        req.ModelID,
+		StyleUUID:      req.StyleUUID,
+		Seed:           req.Seed,
+		Width:          req.Width,
+		Height:         req.Height,
+		NumImages:      req.NumImages,
+		GenerationID:   generationID,
+		Timestamp:      time.Now().UTC().Format(time.RFC3339),
+		Tags:           req.Tags,
+		Private:        req.Private,
+		Alchemy:        req.Alchemy,
+		Ultra:          req.Ultra,
+		Contrast:       req.Contrast,
+		GuidanceScale:  req.GuidanceScale,
+	}
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encoding sidecar metadata: %w", err)
+	}
+	path := filepath.Join(".", fmt.Sprintf("%s.json", generationID))
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("writing sidecar metadata: %w", err)
+	}
+	return path, nil
+}
+
+// inspectSidecar loads and displays a sidecar metadata JSON file.
+func inspectSidecar(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading sidecar metadata: %w", err)
+	}
+	var raw json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parsing sidecar metadata: %w", err)
+	}
+	prettyPrintJSON(data)
+	return nil
+}
+
+// parseTags converts a comma-separated tags value into a trimmed string slice.
+func parseTags(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	tags := make([]string, 0, len(parts))
+	for _, p := range parts {
+		tag := strings.TrimSpace(p)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
 // prettyPrintJSON takes a raw JSON byte slice and prints it indented.
 func prettyPrintJSON(data []byte) {
 	var out bytes.Buffer
@@ -178,10 +272,13 @@ func main() {
 	case "create":
 		createCmd := flag.NewFlagSet("create", flag.ExitOnError)
 		prompt := createCmd.String("prompt", "", "Text prompt for image generation (required)")
+		negativePrompt := createCmd.String("negative-prompt", "", "Negative prompt to avoid undesired traits")
 		modelId := createCmd.String("model-id", "", "Model ID to use for generation")
 		width := createCmd.Int("width", 0, "Width of the generated image")
 		height := createCmd.Int("height", 0, "Height of the generated image")
 		numImages := createCmd.Int("num-images", 1, "Number of images to generate (1-8)")
+		seed := createCmd.Int("seed", 0, "Optional generation seed")
+		tags := createCmd.String("tags", "", "Optional comma-separated metadata tags")
 		private := createCmd.Bool("private", defaultPrivateFromEnv(), "Generate private images (can be set with LEONARDO_PRIVATE)")
 		alchemy := createCmd.Bool("alchemy", false, "Enable Alchemy for advanced generation")
 		ultra := createCmd.Bool("ultra", false, "Enable ultra mode for high fidelity generation")
@@ -197,17 +294,20 @@ func main() {
 		}
 		// Build a domain request object.
 		req := domain.GenerationRequest{
-			Prompt:        *prompt,
-			ModelID:       *modelId,
-			Width:         *width,
-			Height:        *height,
-			NumImages:     *numImages,
-			Private:       *private,
-			Alchemy:       *alchemy,
-			Ultra:         *ultra,
-			StyleUUID:     *styleUUID,
-			Contrast:      *contrast,
-			GuidanceScale: *guidanceScale,
+			Prompt:         *prompt,
+			NegativePrompt: *negativePrompt,
+			ModelID:        *modelId,
+			Width:          *width,
+			Height:         *height,
+			NumImages:      *numImages,
+			Seed:           *seed,
+			Tags:           parseTags(*tags),
+			Private:        *private,
+			Alchemy:        *alchemy,
+			Ultra:          *ultra,
+			StyleUUID:      *styleUUID,
+			Contrast:       *contrast,
+			GuidanceScale:  *guidanceScale,
 		}
 		if err := createGeneration(svc, req); err != nil {
 			fmt.Fprintln(os.Stderr, "Error creating generation:", err)
@@ -271,6 +371,19 @@ func main() {
 		}
 		if err := downloadImages(svc, *id, *outputDir); err != nil {
 			fmt.Fprintln(os.Stderr, "Error downloading images:", err)
+			os.Exit(1)
+		}
+	case "inspect":
+		inspectCmd := flag.NewFlagSet("inspect", flag.ExitOnError)
+		filePath := inspectCmd.String("file", "", "Path to a sidecar metadata JSON file (required)")
+		inspectCmd.Parse(os.Args[2:])
+		if strings.TrimSpace(*filePath) == "" {
+			fmt.Fprintln(os.Stderr, "Error: --file is required")
+			inspectCmd.Usage()
+			os.Exit(1)
+		}
+		if err := inspectSidecar(*filePath); err != nil {
+			fmt.Fprintln(os.Stderr, "Error inspecting sidecar:", err)
 			os.Exit(1)
 		}
 	case "help", "--help", "-h":
