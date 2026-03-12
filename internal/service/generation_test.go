@@ -21,6 +21,7 @@ type fakeLeonardoClient struct {
 	userFn     func() (domain.UserInfo, error)
 	listFn     func(userID string, offset, limit int) (domain.GenerationListResponse, error)
 	downloadFn func(url, destPath string) error
+	modelsFn   func() (domain.PlatformModelResponse, error)
 }
 
 func (f *fakeLeonardoClient) CreateGeneration(req domain.GenerationRequest) (domain.GenerationResponse, error) {
@@ -45,6 +46,10 @@ func (f *fakeLeonardoClient) ListGenerations(userID string, offset, limit int) (
 
 func (f *fakeLeonardoClient) DownloadImage(url, destPath string) error {
 	return f.downloadFn(url, destPath)
+}
+
+func (f *fakeLeonardoClient) ListPlatformModels() (domain.PlatformModelResponse, error) {
+	return f.modelsFn()
 }
 
 // --- Behavior: Creating a generation ---
@@ -651,5 +656,58 @@ func TestDownload_PassesCorrectURLsToClient(t *testing.T) {
 	}
 	if capturedURLs[1] != "https://cdn.leonardo.ai/second.png" {
 		t.Errorf("expected second URL %q, got %q", "https://cdn.leonardo.ai/second.png", capturedURLs[1])
+	}
+}
+
+// --- Behavior: Listing platform models ---
+
+func TestListPlatformModels_ReturnsModelsFromClient(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		modelsFn: func() (domain.PlatformModelResponse, error) {
+			return domain.PlatformModelResponse{
+				Models: []domain.PlatformModel{
+					{ID: "model-1", Name: "Leonardo Diffusion", Description: "General purpose model"},
+					{ID: "model-2", Name: "Leonardo Vision", Description: "Photorealistic model"},
+				},
+				Raw: []byte(`{"custom_models":[{},{}]}`),
+			}, nil
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	resp, err := svc.ListPlatformModels()
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(resp.Models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(resp.Models))
+	}
+	if resp.Models[0].ID != "model-1" {
+		t.Errorf("expected first model ID %q, got %q", "model-1", resp.Models[0].ID)
+	}
+	if resp.Models[0].Name != "Leonardo Diffusion" {
+		t.Errorf("expected first model name %q, got %q", "Leonardo Diffusion", resp.Models[0].Name)
+	}
+	if resp.Models[1].Description != "Photorealistic model" {
+		t.Errorf("expected second model description %q, got %q", "Photorealistic model", resp.Models[1].Description)
+	}
+}
+
+func TestListPlatformModels_PropagatesClientError(t *testing.T) {
+	fake := &fakeLeonardoClient{
+		modelsFn: func() (domain.PlatformModelResponse, error) {
+			return domain.PlatformModelResponse{}, errors.New("API returned status 401")
+		},
+	}
+	svc := service.NewGenerationService(fake)
+
+	_, err := svc.ListPlatformModels()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "API returned status 401" {
+		t.Errorf("expected error message %q, got %q", "API returned status 401", err.Error())
 	}
 }

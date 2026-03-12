@@ -70,3 +70,8 @@ func (s *GenerationService) Download(id, outputDir string) (domain.DownloadResul
 	}
 	return domain.DownloadResult{FilePaths: filePaths}, nil
 }
+
+// ListPlatformModels retrieves the available platform models by delegating to the client.
+func (s *GenerationService) ListPlatformModels() (domain.PlatformModelResponse, error) {
+	return s.client.ListPlatformModels()
+}

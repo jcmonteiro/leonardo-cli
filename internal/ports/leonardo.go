@@ -20,4 +20,7 @@ type LeonardoClient interface {
 	ListGenerations(userID string, offset, limit int) (domain.GenerationListResponse, error)
 	// DownloadImage downloads an image from the given URL and saves it to destPath.
 	DownloadImage(url, destPath string) error
+	// ListPlatformModels retrieves the list of public platform models available
+	// for use with generations.
+	ListPlatformModels() (domain.PlatformModelResponse, error)
 }

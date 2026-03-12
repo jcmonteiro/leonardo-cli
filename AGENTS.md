@@ -3,7 +3,7 @@
 ## Project overview
 
 Go CLI wrapping the [Leonardo.Ai REST API](https://docs.leonardo.ai/).
-Two commands: `create` (start image generation) and `status` (poll by ID).
+Commands: `create` (start image generation), `status` (poll by ID), `delete`, `me`, `list`, `models`, `download`, and `inspect`.
 No external dependencies beyond the Go standard library.
 
 ## Build & run
@@ -149,3 +149,5 @@ var _ ports.LeonardoClient = (*APIClient)(nil)
 - Commit granularly — one logical change per commit.
 - Never commit secrets, `.env` files, or API keys.
 - `LEONARDO_API_KEY` is always read from the environment at runtime.
+- `LEONARDO_MODEL_ID` optionally sets the default model for `create --model-id`.
+- `LEONARDO_PRIVATE` optionally sets the default for `create --private`.

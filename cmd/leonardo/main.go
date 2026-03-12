@@ -26,6 +26,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  delete   Delete an existing generation")
 	fmt.Fprintln(os.Stderr, "  me       Show account info and token balances")
 	fmt.Fprintln(os.Stderr, "  list     List recent generations")
+	fmt.Fprintln(os.Stderr, "  models   List available platform models")
 	fmt.Fprintln(os.Stderr, "  download Download images for a completed generation")
 	fmt.Fprintln(os.Stderr, "  inspect  Inspect a sidecar metadata JSON file")
 	fmt.Fprintln(os.Stderr, "Use \"", program, " <command> -h\" for more information about a command.")
@@ -51,6 +52,11 @@ func defaultPrivateFromEnv() bool {
 		return false
 	}
 	return private
+}
+
+// defaultModelIDFromEnv returns the default model ID from the environment.
+func defaultModelIDFromEnv() string {
+	return strings.TrimSpace(os.Getenv("LEONARDO_MODEL_ID"))
 }
 
 // createGeneration wraps the service call to create a generation and outputs
@@ -154,6 +160,24 @@ func downloadImages(svc *service.GenerationService, id, outputDir string) error 
 	for i, fp := range result.FilePaths {
 		fmt.Printf("Image %d saved: %s\n", i+1, fp)
 	}
+	return nil
+}
+
+// listPlatformModels wraps the service call to retrieve available platform
+// models and outputs a summary to the user.
+func listPlatformModels(svc *service.GenerationService) error {
+	resp, err := svc.ListPlatformModels()
+	if err != nil {
+		return err
+	}
+	for _, model := range resp.Models {
+		fmt.Printf("[%s] %s", model.ID, model.Name)
+		if model.Description != "" {
+			fmt.Printf(" — %s", model.Description)
+		}
+		fmt.Println()
+	}
+	prettyPrintJSON(resp.Raw)
 	return nil
 }
 
@@ -272,7 +296,7 @@ func main() {
 		createCmd := flag.NewFlagSet("create", flag.ExitOnError)
 		prompt := createCmd.String("prompt", "", "Text prompt for image generation (required)")
 		negativePrompt := createCmd.String("negative-prompt", "", "Negative prompt to avoid undesired traits")
-		modelId := createCmd.String("model-id", "", "Model ID to use for generation")
+		modelId := createCmd.String("model-id", defaultModelIDFromEnv(), "Model ID to use for generation (can be set with LEONARDO_MODEL_ID)")
 		width := createCmd.Int("width", 0, "Width of the generated image")
 		height := createCmd.Int("height", 0, "Height of the generated image")
 		numImages := createCmd.Int("num-images", 1, "Number of images to generate (1-8)")
@@ -358,6 +382,11 @@ func main() {
 		}
 		if err := listGenerations(svc, *userID, *offset, *limit); err != nil {
 			fmt.Fprintln(os.Stderr, "Error listing generations:", err)
+			os.Exit(1)
+		}
+	case "models":
+		if err := listPlatformModels(svc); err != nil {
+			fmt.Fprintln(os.Stderr, "Error listing platform models:", err)
 			os.Exit(1)
 		}
 	case "download":

@@ -155,3 +155,16 @@ type GenerationListResponse struct {
 type DownloadResult struct {
 	FilePaths []string
 }
+
+// PlatformModel represents a single platform model available for generation.
+type PlatformModel struct {
+	ID          string
+	Name        string
+	Description string
+}
+
+// PlatformModelResponse represents the response from listing platform models.
+type PlatformModelResponse struct {
+	Models []PlatformModel
+	Raw    []byte
+}

@@ -255,3 +255,24 @@ func TestIntegration_DownloadImage(t *testing.T) {
 	}
 	t.Logf("Downloaded image: %s (%d bytes)", destPath, info.Size())
 }
+
+func TestIntegration_ListPlatformModels(t *testing.T) {
+	apiKey := requireAPIKey(t)
+
+	client := provider.NewAPIClient(apiKey, nil)
+
+	resp, err := client.ListPlatformModels()
+	if err != nil {
+		t.Fatalf("ListPlatformModels failed: %v", err)
+	}
+	if len(resp.Models) == 0 {
+		t.Error("expected at least one platform model")
+	}
+	t.Logf("Found %d platform models", len(resp.Models))
+	for _, model := range resp.Models {
+		t.Logf("  [%s] %s — %s", model.ID, model.Name, model.Description)
+	}
+	if len(resp.Raw) == 0 {
+		t.Error("expected non-empty raw response")
+	}
+}

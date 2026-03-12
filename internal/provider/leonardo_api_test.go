@@ -747,6 +747,128 @@ func TestAPIClient_DownloadImage_UsesGETMethod(t *testing.T) {
 	}
 }
 
+// --- Behavior: Listing platform models via HTTP ---
+
+func TestAPIClient_ListPlatformModels_SendsCorrectHTTPRequest(t *testing.T) {
+	var receivedMethod, receivedPath string
+	var receivedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		receivedPath = r.URL.Path
+		receivedHeaders = r.Header
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"custom_models":[{"id":"model-1","name":"Leonardo Diffusion","description":"General purpose model"}]}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("my-api-key", server.URL)
+
+	resp, err := client.ListPlatformModels()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedMethod != "GET" {
+		t.Errorf("expected GET, got %s", receivedMethod)
+	}
+	if receivedPath != "/api/rest/v1/platformModels" {
+		t.Errorf("expected path /api/rest/v1/platformModels, got %s", receivedPath)
+	}
+	if receivedHeaders.Get("Authorization") != "Bearer my-api-key" {
+		t.Errorf("expected Authorization header %q, got %q", "Bearer my-api-key", receivedHeaders.Get("Authorization"))
+	}
+	if len(resp.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(resp.Models))
+	}
+	if resp.Models[0].ID != "model-1" {
+		t.Errorf("expected model ID %q, got %q", "model-1", resp.Models[0].ID)
+	}
+	if resp.Models[0].Name != "Leonardo Diffusion" {
+		t.Errorf("expected model name %q, got %q", "Leonardo Diffusion", resp.Models[0].Name)
+	}
+	if resp.Models[0].Description != "General purpose model" {
+		t.Errorf("expected model description %q, got %q", "General purpose model", resp.Models[0].Description)
+	}
+}
+
+func TestAPIClient_ListPlatformModels_ParsesMultipleModels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"custom_models":[
+				{"id":"model-1","name":"Leonardo Diffusion","description":"General purpose"},
+				{"id":"model-2","name":"Leonardo Vision","description":"Photorealistic"},
+				{"id":"model-3","name":"Leonardo Creative","description":"Creative style"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	resp, err := client.ListPlatformModels()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Models) != 3 {
+		t.Fatalf("expected 3 models, got %d", len(resp.Models))
+	}
+	expected := []struct {
+		id   string
+		name string
+	}{
+		{"model-1", "Leonardo Diffusion"},
+		{"model-2", "Leonardo Vision"},
+		{"model-3", "Leonardo Creative"},
+	}
+	for i, want := range expected {
+		if resp.Models[i].ID != want.id {
+			t.Errorf("model %d: expected ID %q, got %q", i, want.id, resp.Models[i].ID)
+		}
+		if resp.Models[i].Name != want.name {
+			t.Errorf("model %d: expected name %q, got %q", i, want.name, resp.Models[i].Name)
+		}
+	}
+}
+
+func TestAPIClient_ListPlatformModels_ReturnsErrorOnNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("bad-key", server.URL)
+
+	_, err := client.ListPlatformModels()
+	if err == nil {
+		t.Fatal("expected error for 401 status, got nil")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected error to mention status 401, got %q", err.Error())
+	}
+}
+
+func TestAPIClient_ListPlatformModels_ReturnsRawResponseAlways(t *testing.T) {
+	expectedJSON := `{"custom_models":[]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(expectedJSON))
+	}))
+	defer server.Close()
+
+	client := newClientWithBaseURL("key", server.URL)
+
+	resp, err := client.ListPlatformModels()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp.Raw) != expectedJSON {
+		t.Errorf("expected raw response %q, got %q", expectedJSON, string(resp.Raw))
+	}
+}
+
 // --- Behavior: Default HTTP client ---
 
 func TestAPIClient_UsesDefaultHTTPClientWhenNilProvided(t *testing.T) {

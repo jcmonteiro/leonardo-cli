@@ -327,5 +327,51 @@ func (c *APIClient) DownloadImage(url, destPath string) error {
 	return nil
 }
 
+// ListPlatformModels implements the LeonardoClient interface.  It issues a
+// GET request to the /platformModels endpoint to retrieve the list of public
+// platform models available for image generation.
+func (c *APIClient) ListPlatformModels() (domain.PlatformModelResponse, error) {
+	httpReq, err := http.NewRequest("GET", "https://cloud.leonardo.ai/api/rest/v1/platformModels", nil)
+	if err != nil {
+		return domain.PlatformModelResponse{}, fmt.Errorf("creating request: %w", err)
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return domain.PlatformModelResponse{}, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return domain.PlatformModelResponse{}, fmt.Errorf("reading response: %w", err)
+	}
+	if resp.StatusCode >= 300 {
+		return domain.PlatformModelResponse{Raw: bodyBytes}, fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+	result := domain.PlatformModelResponse{Raw: bodyBytes}
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &decoded); err == nil {
+		if models, ok := decoded["custom_models"].([]interface{}); ok {
+			for _, m := range models {
+				if model, ok := m.(map[string]interface{}); ok {
+					item := domain.PlatformModel{}
+					if id, ok := model["id"].(string); ok {
+						item.ID = id
+					}
+					if name, ok := model["name"].(string); ok {
+						item.Name = name
+					}
+					if desc, ok := model["description"].(string); ok {
+						item.Description = desc
+					}
+					result.Models = append(result.Models, item)
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
 // Ensure APIClient satisfies the LeonardoClient interface at compile time.
 var _ ports.LeonardoClient = (*APIClient)(nil)

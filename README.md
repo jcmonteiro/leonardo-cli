@@ -66,6 +66,20 @@ The `create` command submits a new image generation request.  A prompt is requir
 
 Set `--private=true` to explicitly request private images. You can also set `LEONARDO_PRIVATE=true` to make private generations the default, while still overriding per command with `--private=false`.
 
+You can set a default model ID via the `LEONARDO_MODEL_ID` environment variable.  When set, `--model-id` uses it as its default value, so you don't need to pass it every time.  You can still override it per command:
+
+```sh
+export LEONARDO_MODEL_ID="7b592283-e8a7-4c5a-9ba6-d18c31f258b9"
+
+# Uses the default model from env:
+./leonardo create --prompt "A sunset over the ocean"
+
+# Overrides the default for this command:
+./leonardo create --prompt "A sunset over the ocean" --model-id other-model-id
+```
+
+To discover available model IDs, use the `models` command.
+
 If the call is successful, the CLI prints the returned `generationId` along with the full JSON response.  It also writes a sidecar metadata JSON file named `{generationId}.json` in the current directory.  The generation ID can be used to poll for status.
 
 In the [Quick Start Guide](https://docs.leonardo.ai/docs/getting-started), Leonardo explains that after submitting a generation you receive an identifier (often called `generationId`) that is used in subsequent calls【202409399148263†L150-L176】.
@@ -89,6 +103,16 @@ Use the `inspect` command with the sidecar file path to display its contents:
 ```sh
 ./leonardo inspect --file ./123456-0987-aaaa-bbbb-01010101010.json
 ```
+
+### List available models
+
+Use the `models` command to see all public platform models available for generation:
+
+```sh
+./leonardo models
+```
+
+Each model is shown with its ID, name and description.  Use the ID with `--model-id` when creating a generation, or set it as your default via `LEONARDO_MODEL_ID`.
 
 ## Architecture overview
 

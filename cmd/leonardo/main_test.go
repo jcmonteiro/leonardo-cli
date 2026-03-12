@@ -129,3 +129,27 @@ func TestParseTags_ParsesAndTrimsCommaSeparatedValues(t *testing.T) {
 		t.Errorf("unexpected tags parsed: %#v", got)
 	}
 }
+
+func TestDefaultModelIDFromEnv_ReturnsValueWhenSet(t *testing.T) {
+	t.Setenv("LEONARDO_MODEL_ID", "model-abc-123")
+	got := defaultModelIDFromEnv()
+	if got != "model-abc-123" {
+		t.Errorf("expected %q, got %q", "model-abc-123", got)
+	}
+}
+
+func TestDefaultModelIDFromEnv_ReturnsEmptyWhenUnset(t *testing.T) {
+	t.Setenv("LEONARDO_MODEL_ID", "")
+	got := defaultModelIDFromEnv()
+	if got != "" {
+		t.Errorf("expected empty string, got %q", got)
+	}
+}
+
+func TestDefaultModelIDFromEnv_TrimsWhitespace(t *testing.T) {
+	t.Setenv("LEONARDO_MODEL_ID", "  model-xyz  ")
+	got := defaultModelIDFromEnv()
+	if got != "model-xyz" {
+		t.Errorf("expected %q, got %q", "model-xyz", got)
+	}
+}
